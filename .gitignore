@@ -25,6 +25,3 @@ media/
 .env
 .env.local
 *.env
-
-# ── files ───────────────────────────────────
-*money_manager_deep_dive.md
