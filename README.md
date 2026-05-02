@@ -1,26 +1,29 @@
 # 💰 Money Manager
 
-A modern, full-stack money management application to track income and expenses with a clean, responsive UI.
+A modern, full-stack money management application with **user authentication** to track income and expenses with a clean, responsive UI.
 
-Built with **Django REST Framework** (backend) and **Vanilla JavaScript** (frontend).
+Built with **Django REST Framework** (backend), **JWT Authentication**, and **Vanilla JavaScript** (frontend).
 
 ![Dashboard](https://img.shields.io/badge/Status-Active-22c55e?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat-square&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-5.x+-092e20?style=flat-square&logo=django&logoColor=white)
+![JWT](https://img.shields.io/badge/Auth-JWT-f59e0b?style=flat-square&logo=jsonwebtokens&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-6366f1?style=flat-square)
 
 ---
 
 ## ✨ Features
 
-- **Transaction Tracking** — Record income and expenses with amount, category, status, date, and description
-- **Dashboard** — Summary cards showing total income, expenses, net balance, and transaction count
-- **Category System** — 10 built-in categories with emoji icons (Food, Transport, Shopping, Bills, Health, Entertainment, Salary, Freelance, Investment, Other)
-- **Filters** — Filter transactions by status (Income/Expense) and category
-- **Dark/Light Mode** — Theme toggle with localStorage persistence
-- **Responsive Design** — Works seamlessly on desktop, tablet, and mobile
-- **Django Admin** — Built-in admin panel for advanced data management
-- **REST API** — Clean RESTful API with full CRUD operations
+- **🔐 User Authentication** — Register & login with JWT tokens (access + refresh)
+- **👤 Multi-User Support** — Each user sees only their own transactions
+- **💳 Transaction Tracking** — Record income and expenses with amount, category, status, date, and description
+- **📊 Dashboard** — Summary cards showing total income, expenses, net balance, and transaction count
+- **🏷️ Category System** — 10 built-in categories with emoji icons (Food, Transport, Shopping, Bills, Health, Entertainment, Salary, Freelance, Investment, Other)
+- **🔍 Filters** — Filter transactions by status (Income/Expense) and category
+- **🌙 Dark/Light Mode** — Theme toggle with localStorage persistence
+- **📱 Responsive Design** — Works seamlessly on desktop, tablet, and mobile
+- **🛡️ Django Admin** — Built-in admin panel for advanced data management
+- **🔄 REST API** — Clean RESTful API with full CRUD operations
 
 ---
 
@@ -29,6 +32,7 @@ Built with **Django REST Framework** (backend) and **Vanilla JavaScript** (front
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Django 5.x + Django REST Framework |
+| **Authentication** | SimpleJWT (access + refresh tokens) |
 | **Frontend** | HTML5 + Vanilla CSS + JavaScript |
 | **Database** | SQLite (dev) → PostgreSQL (production) |
 | **API** | RESTful JSON API |
@@ -43,23 +47,31 @@ MoneyManager/
 ├── backend/                    # Django project
 │   ├── manage.py
 │   ├── config/                 # Project settings
-│   │   ├── settings.py
+│   │   ├── settings.py         # DRF, JWT, CORS config
 │   │   ├── urls.py
 │   │   └── wsgi.py
+│   ├── accounts/               # Auth app (Phase 2)
+│   │   ├── serializers.py      # Register & user serializers
+│   │   ├── views.py            # Register, login, profile views
+│   │   └── urls.py             # Auth URL routing
 │   ├── transactions/           # Main app
-│   │   ├── models.py           # Transaction model (UUID PK)
+│   │   ├── models.py           # Transaction model (UUID PK + User FK)
 │   │   ├── serializers.py      # DRF serializers + validation
-│   │   ├── views.py            # API ViewSet + summary endpoint
+│   │   ├── views.py            # API ViewSet (user-scoped) + summary
 │   │   ├── urls.py             # DRF router
 │   │   └── admin.py            # Admin panel config
 │   └── requirements.txt
 ├── frontend/                   # Static frontend
-│   ├── index.html
+│   ├── index.html              # Main app (requires auth)
+│   ├── login.html              # Login/Register page
 │   ├── css/
-│   │   └── styles.css          # Design system with CSS variables
+│   │   ├── styles.css          # Design system
+│   │   └── auth.css            # Auth page styles
 │   └── js/
-│       └── app.js              # API integration & UI logic
-└── README.md
+│       ├── app.js              # Main app logic (with JWT)
+│       └── auth.js             # Login/register logic
+├── README.md
+└── money_manager_deep_dive.md  # Technical deep dive
 ```
 
 ---
@@ -74,8 +86,8 @@ MoneyManager/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/MoneyManager.git
-cd MoneyManager
+git clone https://github.com/Sunil2409/money-management-system.git
+cd money-management-system
 ```
 
 ### 2. Set up the backend
@@ -93,9 +105,6 @@ pip install -r backend/requirements.txt
 cd backend
 python manage.py migrate
 
-# Create admin user (optional)
-python manage.py createsuperuser
-
 # Start the backend server
 python manage.py runserver 8000
 ```
@@ -112,14 +121,45 @@ python3 -m http.server 5500
 ### 4. Open the app
 
 Navigate to **http://127.0.0.1:5500** in your browser.
+You'll be redirected to the **login page** — create an account to get started!
+
+---
+
+## 🔐 Authentication Flow
+
+```
+Register/Login → JWT tokens issued → Stored in localStorage
+→ Every API request includes Authorization: Bearer <token>
+→ Token expires (1 day) → Auto-refresh with refresh token (7 days)
+→ Logout clears tokens → Redirects to login
+```
+
+| Step | What Happens |
+|------|-------------|
+| **Register** | `POST /api/auth/register/` → Creates user → Returns JWT tokens |
+| **Login** | `POST /api/auth/login/` → Validates credentials → Returns JWT tokens |
+| **API Calls** | Every `fetch()` includes `Authorization: Bearer <access_token>` |
+| **Token Refresh** | On 401 → auto-POST to `/api/auth/token/refresh/` with refresh token |
+| **Logout** | Clears `localStorage` tokens → Redirects to `login.html` |
 
 ---
 
 ## 📡 API Endpoints
 
+### Authentication
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/transactions/` | List all transactions |
+| `POST` | `/api/auth/register/` | Create a new account |
+| `POST` | `/api/auth/login/` | Get JWT access + refresh tokens |
+| `POST` | `/api/auth/token/refresh/` | Refresh expired access token |
+| `GET` | `/api/auth/me/` | Get current user profile |
+
+### Transactions (requires auth)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/transactions/` | List user's transactions |
 | `POST` | `/api/transactions/` | Create a new transaction |
 | `GET` | `/api/transactions/{id}/` | Retrieve a transaction |
 | `PUT` | `/api/transactions/{id}/` | Update a transaction |
@@ -133,18 +173,19 @@ Navigate to **http://127.0.0.1:5500** in your browser.
 | `status` | `spent`, `credited` | Filter by transaction status |
 | `category` | `food`, `transport`, `shopping`, `bills`, `health`, `entertainment`, `salary`, `freelance`, `investment`, `other` | Filter by category |
 
-### Example: Create a Transaction
+### Example: Authenticated Request
 
 ```bash
+# Register
+curl -X POST http://127.0.0.1:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "sunil", "email": "sunil@test.com", "password": "test1234"}'
+
+# Create transaction with token
 curl -X POST http://127.0.0.1:8000/api/transactions/ \
   -H "Content-Type: application/json" \
-  -d '{
-    "amount": "250.00",
-    "category": "food",
-    "status": "spent",
-    "description": "Lunch at office canteen",
-    "date": "2026-05-01"
-  }'
+  -H "Authorization: Bearer <your-access-token>" \
+  -d '{"amount": "250.00", "category": "food", "status": "spent", "description": "Lunch", "date": "2026-05-02"}'
 ```
 
 ---
@@ -152,9 +193,10 @@ curl -X POST http://127.0.0.1:8000/api/transactions/ \
 ## 🔄 Data Flow
 
 ```
-User fills form → JavaScript collects data → fetch() POST to /api/transactions/
-→ Django DRF Serializer validates → ORM saves to SQLite
-→ JSON response → JavaScript updates DOM → User sees dashboard updated
+User fills form → JavaScript collects data → authFetch() adds JWT header
+→ fetch() POST to /api/transactions/ → Django validates token
+→ DRF Serializer validates data → ORM saves to SQLite (with user FK)
+→ JSON response → JavaScript updates DOM → Dashboard refreshes
 ```
 
 ---
@@ -162,7 +204,7 @@ User fills form → JavaScript collects data → fetch() POST to /api/transactio
 ## 🗺️ Roadmap
 
 - [x] Phase 1 — Core CRUD + Responsive UI
-- [ ] Phase 2 — User Authentication (Django auth)
+- [x] Phase 2 — User Authentication (JWT)
 - [ ] Phase 3 — Dashboard Charts (Chart.js)
 - [ ] Phase 4 — AI-powered Categorization
 - [ ] Phase 5 — AWS Deployment (ECS + RDS + S3 + CloudFront)

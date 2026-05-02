@@ -40,7 +40,9 @@ INSTALLED_APPS = [
     # Third-party
     "rest_framework",
     "corsheaders",
+    "rest_framework_simplejwt",
     # Local apps
+    "accounts",
     "transactions",
 ]
 
@@ -126,6 +128,20 @@ STATIC_URL = "static/"
 # ── Django REST Framework ─────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': None,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# ── JWT Settings ──────────────────────────────────────────────────
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
 }
 
 # ── CORS Settings ─────────────────────────────────────────────────
@@ -136,3 +152,4 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_ALL_ORIGINS = True  # Dev only — remove in production
+CORS_ALLOW_CREDENTIALS = True

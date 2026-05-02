@@ -1,16 +1,90 @@
 /**
- * Money Manager — Frontend Application
- * Data Flow: User Action → JS Event → fetch() → Django DRF → Database → JSON → DOM Update
+ * Money Manager — Frontend Application (Phase 2: With Auth)
+ * Data Flow: User Action → JS Event → fetch() with JWT → Django DRF → Database → JSON → DOM Update
  */
 const API_BASE = 'http://127.0.0.1:8000/api';
 const CATEGORY_EMOJI = { food:'🍕', transport:'🚗', shopping:'🛍️', bills:'💡', health:'🏥', entertainment:'🎬', salary:'💰', freelance:'💻', investment:'📈', other:'📋' };
 const CATEGORY_LABELS = { food:'Food & Dining', transport:'Transport & Fuel', shopping:'Shopping', bills:'Bills & Utilities', health:'Health & Medical', entertainment:'Entertainment', salary:'Salary & Income', freelance:'Freelance Income', investment:'Investments', other:'Miscellaneous' };
 let deleteTargetId = null;
 
+// ── Auth Guard ──
+function getToken() { return localStorage.getItem('mm-access-token'); }
+function requireAuth() {
+  if (!getToken()) { window.location.href = 'login.html'; return false; }
+  return true;
+}
+
+// ── Authenticated Fetch ──
+async function authFetch(url, options = {}) {
+  const token = getToken();
+  if (!token) { window.location.href = 'login.html'; return; }
+  const headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
+  if (options.body && !options.headers?.['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    // Try refresh
+    const refreshed = await refreshToken();
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${getToken()}`;
+      return fetch(url, { ...options, headers });
+    }
+    logout();
+    return res;
+  }
+  return res;
+}
+
+async function refreshToken() {
+  const refresh = localStorage.getItem('mm-refresh-token');
+  if (!refresh) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    localStorage.setItem('mm-access-token', data.access);
+    if (data.refresh) localStorage.setItem('mm-refresh-token', data.refresh);
+    return true;
+  } catch { return false; }
+}
+
+function logout() {
+  localStorage.removeItem('mm-access-token');
+  localStorage.removeItem('mm-refresh-token');
+  window.location.href = 'login.html';
+}
+
+// ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
   initTheme(); initNavigation(); initForm(); initFilters(); initModal();
-  setDefaultDate(); loadDashboard();
+  setDefaultDate(); loadDashboard(); loadUserProfile();
 });
+
+// ── User Profile ──
+async function loadUserProfile() {
+  try {
+    const res = await authFetch(`${API_BASE}/auth/me/`);
+    if (res.ok) {
+      const user = await res.json();
+      const userInfoEl = document.getElementById('userInfo');
+      if (userInfoEl) {
+        const initial = user.username.charAt(0).toUpperCase();
+        userInfoEl.innerHTML = `
+          <div class="user-avatar">${initial}</div>
+          <div class="user-details">
+            <div class="user-name">${user.username}</div>
+            <div class="user-email">${user.email}</div>
+          </div>`;
+      }
+    }
+  } catch (err) { console.error('Profile load error:', err); }
+}
 
 // ── Theme ──
 function initTheme() {
@@ -34,6 +108,9 @@ function initNavigation() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => sidebar.classList.remove('open'));
   });
+  // Logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.addEventListener('click', logout);
 }
 
 function showSection(sectionId) {
@@ -87,8 +164,8 @@ async function handleSubmit(e) {
   if (!data.date) { showToast('Please select a date', 'error'); return; }
   btn.classList.add('loading'); btn.disabled = true;
   try {
-    const res = await fetch(`${API_BASE}/transactions/`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    const res = await authFetch(`${API_BASE}/transactions/`, {
+      method: 'POST', body: JSON.stringify(data),
     });
     if (!res.ok) { const err = await res.json(); throw new Error(Object.values(err).flat().join(', ') || 'Failed to save'); }
     showToast('Transaction saved successfully!', 'success');
@@ -112,7 +189,7 @@ function resetForm() {
 // ── Dashboard ──
 async function loadDashboard() {
   try {
-    const summaryRes = await fetch(`${API_BASE}/transactions/summary/`);
+    const summaryRes = await authFetch(`${API_BASE}/transactions/summary/`);
     if (summaryRes.ok) {
       const summary = await summaryRes.json();
       animateValue('totalCredited', summary.total_credited);
@@ -120,7 +197,7 @@ async function loadDashboard() {
       animateValue('netBalance', summary.balance);
       document.getElementById('txnCount').textContent = summary.transaction_count;
     }
-    const txnRes = await fetch(`${API_BASE}/transactions/`);
+    const txnRes = await authFetch(`${API_BASE}/transactions/`);
     if (txnRes.ok) {
       const data = await txnRes.json();
       const transactions = Array.isArray(data) ? data : (data.results || []);
@@ -142,8 +219,7 @@ function renderRecentTransactions(transactions) {
   const empty = document.getElementById('dashboardEmpty');
   if (!transactions.length) { empty.style.display = 'block'; return; }
   empty.style.display = 'none';
-  const recent = transactions.slice(0, 5);
-  container.innerHTML = recent.map(txn => `
+  container.innerHTML = transactions.slice(0, 5).map(txn => `
     <div class="txn-item">
       <div class="txn-emoji">${CATEGORY_EMOJI[txn.category] || '📋'}</div>
       <div class="txn-details">
@@ -171,7 +247,7 @@ async function loadTransactions() {
   if (category) params.push(`category=${category}`);
   url += params.join('&');
   try {
-    const res = await fetch(url);
+    const res = await authFetch(url);
     if (!res.ok) throw new Error('Failed to load');
     const data = await res.json();
     const transactions = Array.isArray(data) ? data : (data.results || []);
@@ -216,7 +292,7 @@ function closeModal() { document.getElementById('deleteModal').classList.remove(
 async function executeDelete() {
   if (!deleteTargetId) return;
   try {
-    const res = await fetch(`${API_BASE}/transactions/${deleteTargetId}/`, { method: 'DELETE' });
+    const res = await authFetch(`${API_BASE}/transactions/${deleteTargetId}/`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Delete failed');
     showToast('Transaction deleted', 'info'); closeModal(); loadTransactions(); loadDashboard();
   } catch (err) { showToast(err.message, 'error'); }

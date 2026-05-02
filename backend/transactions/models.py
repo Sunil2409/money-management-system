@@ -10,6 +10,7 @@ Each transaction captures:
 """
 
 import uuid
+from django.conf import settings
 from django.db import models
 
 
@@ -46,6 +47,12 @@ class Transaction(models.Model):
         default=uuid.uuid4,
         editable=False,
         help_text="Unique identifier for the transaction"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='transactions',
+        help_text="Owner of this transaction"
     )
     amount = models.DecimalField(
         max_digits=12,

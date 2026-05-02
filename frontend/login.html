@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Money Manager — Sign in or create an account to track your finances.">
+    <title>Money Manager — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body class="auth-body">
+
+    <div class="auth-container">
+        <!-- Left: Branding Panel -->
+        <div class="auth-branding">
+            <div class="auth-brand-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text">MoneyMgr</span>
+                </div>
+                <h1>Take control of<br>your <span class="gradient-text">finances</span></h1>
+                <p>Track income, manage expenses, and build better spending habits — all in one place.</p>
+                <div class="auth-features">
+                    <div class="auth-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                        <span>Real-time dashboard</span>
+                    </div>
+                    <div class="auth-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                        <span>Category-wise tracking</span>
+                    </div>
+                    <div class="auth-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <span>Secure & private</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Auth Forms -->
+        <div class="auth-forms">
+            <!-- LOGIN FORM -->
+            <div class="auth-form-wrapper active" id="loginForm">
+                <h2>Welcome back</h2>
+                <p class="auth-subtitle">Sign in to your account</p>
+                <form id="loginFormEl" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" placeholder="Enter your username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password">
+                    </div>
+                    <div class="auth-error" id="loginError"></div>
+                    <button type="submit" class="btn btn-primary btn-lg btn-submit" id="loginBtn">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-loader"><svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-linecap="round"/></svg></span>
+                    </button>
+                </form>
+                <p class="auth-switch">Don't have an account? <a href="#" id="showRegister">Create one</a></p>
+            </div>
+
+            <!-- REGISTER FORM -->
+            <div class="auth-form-wrapper" id="registerForm">
+                <h2>Create account</h2>
+                <p class="auth-subtitle">Start managing your finances today</p>
+                <form id="registerFormEl" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="regUsername">Username</label>
+                        <input type="text" id="regUsername" placeholder="Choose a username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regEmail">Email</label>
+                        <input type="email" id="regEmail" placeholder="your@email.com" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPassword">Password</label>
+                        <input type="password" id="regPassword" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password">
+                    </div>
+                    <div class="auth-error" id="registerError"></div>
+                    <button type="submit" class="btn btn-primary btn-lg btn-submit" id="registerBtn">
+                        <span class="btn-text">Create Account</span>
+                        <span class="btn-loader"><svg class="spinner" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4" stroke-linecap="round"/></svg></span>
+                    </button>
+                </form>
+                <p class="auth-switch">Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+</body>
+</html>

@@ -6,8 +6,10 @@
 
 ## 1. What Is This Project?
 
-Money Manager is a **full-stack personal finance tracker** that lets you record income and expenses, view a dashboard with live statistics, and filter/delete transactions. It demonstrates:
+Money Manager is a **full-stack personal finance tracker** with **user authentication** that lets you record income and expenses, view a dashboard with live statistics, and filter/delete transactions. It demonstrates:
 
+- **JWT authentication** with access/refresh token flow
+- **Multi-user data isolation** — each user sees only their own transactions
 - Backend API design with **Django + Django REST Framework**
 - Frontend SPA-like behavior with **Vanilla JavaScript** (no React/Vue)
 - A **CSS design system** with dark/light themes, glassmorphism, and responsive layout
@@ -20,22 +22,27 @@ Money Manager is a **full-stack personal finance tracker** that lets you record 
 ```mermaid
 graph TB
     subgraph "Frontend (Port 5500)"
-        A["index.html<br/>Single-page UI"] --> B["app.js<br/>fetch() API calls"]
-        A --> C["styles.css<br/>Design System"]
+        A1["login.html<br/>Auth Pages"] --> A2["auth.js<br/>JWT Login/Register"]
+        A3["index.html<br/>Main App"] --> A4["app.js<br/>authFetch() API calls"]
+        A3 --> A5["styles.css + auth.css<br/>Design System"]
     end
 
     subgraph "Backend (Port 8000)"
-        D["config/urls.py<br/>Root Router"] --> E["transactions/urls.py<br/>DRF Router"]
-        E --> F["TransactionViewSet<br/>CRUD + summary"]
-        F --> G["TransactionSerializer<br/>Validation & Serialization"]
-        G --> H["Transaction Model<br/>ORM → SQL"]
+        D["config/urls.py<br/>Root Router"] --> E1["accounts/urls.py<br/>Auth Routes"]
+        D --> E2["transactions/urls.py<br/>DRF Router"]
+        E1 --> F1["SimpleJWT Views<br/>Login + Refresh"]
+        E1 --> F1b["register_view + me_view<br/>Custom Auth"]
+        E2 --> F2["TransactionViewSet<br/>User-scoped CRUD"]
+        F2 --> G["TransactionSerializer<br/>Validation"]
+        G --> H["Transaction Model<br/>ORM → SQL (User FK)"]
     end
 
     subgraph "Database"
         I[("SQLite<br/>db.sqlite3")]
     end
 
-    B -- "HTTP JSON (CORS)" --> D
+    A2 -- "POST /api/auth/login/" --> E1
+    A4 -- "Bearer JWT Token" --> D
     H --> I
 ```
 
@@ -43,6 +50,7 @@ graph TB
 |-------|-----------|------|
 | **Frontend** | HTML5 + Vanilla CSS + JavaScript | `5500` (Python HTTP server) |
 | **Backend** | Django 5.x + DRF 3.15+ | `8000` (Django runserver) |
+| **Authentication** | SimpleJWT (access + refresh tokens) | — |
 | **Database** | SQLite (dev) → PostgreSQL (prod) | Embedded file |
 | **Cross-Origin** | `django-cors-headers` | — |
 
@@ -167,47 +175,87 @@ STATUS_CHOICES = [
 
 ---
 
-## 5. Relationships (Current & Future)
+## 5. Relationships & Authentication (Phase 2)
 
-Currently, the app has **no relationships** — it's a single-table design. This is intentional for Phase 1 (MVP). Here's how it would expand:
+The app now has a **User → Transaction** relationship. Each transaction is owned by a user, and all API queries are scoped to `request.user`.
 
 ```mermaid
 erDiagram
-    USER ||--o{ TRANSACTION : "owns (Phase 2)"
+    USER ||--o{ TRANSACTION : "owns"
     CATEGORY ||--o{ TRANSACTION : "belongs to (Phase 4)"
     BUDGET ||--o{ CATEGORY : "limits (Phase 6)"
     RECURRING ||--o{ TRANSACTION : "generates (Phase 6)"
 
     USER {
         int id PK
+        string username
         string email
         string password_hash
+        datetime date_joined
     }
     TRANSACTION {
         UUID id PK
-        FK user_id
-        FK category_id
+        FK user_id "CASCADE"
         decimal amount
-    }
-    CATEGORY {
-        int id PK
-        string name
-        string emoji
-        FK user_id
-    }
-    BUDGET {
-        int id PK
-        FK category_id
-        decimal limit_amount
-        string period
-    }
-    RECURRING {
-        int id PK
-        FK user_id
-        string frequency
-        decimal amount
+        string category
+        string status
+        text description
+        date date
     }
 ```
+
+### 5.1 JWT Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User (Browser)
+    participant JS as auth.js
+    participant API as Django Auth API
+    participant JWT as SimpleJWT
+    participant LS as localStorage
+
+    U->>JS: Fill register form & click "Create Account"
+    JS->>API: POST /api/auth/register/ {username, email, password}
+    API->>API: Create User (hash password)
+    API->>JWT: RefreshToken.for_user(user)
+    JWT-->>API: {access, refresh}
+    API-->>JS: 201 {user, tokens}
+    JS->>LS: Store mm-access-token & mm-refresh-token
+    JS->>U: Redirect to index.html
+
+    Note over U,LS: Subsequent API calls
+    U->>JS: Navigate to Dashboard
+    JS->>LS: Read mm-access-token
+    JS->>API: GET /api/transactions/ (Authorization: Bearer <token>)
+    API->>JWT: Validate token
+    JWT-->>API: user_id extracted
+    API->>API: Transaction.objects.filter(user=user)
+    API-->>JS: JSON (user's transactions only)
+    JS->>U: Render dashboard
+
+    Note over U,LS: Token expired
+    JS->>API: GET /api/transactions/ (expired token)
+    API-->>JS: 401 Unauthorized
+    JS->>API: POST /api/auth/token/refresh/ {refresh}
+    API->>JWT: Validate & rotate refresh
+    JWT-->>API: {new access, new refresh}
+    JS->>LS: Update tokens
+    JS->>API: Retry original request
+```
+
+### 5.2 Key Auth Implementation Details
+
+| Component | Implementation |
+|-----------|---------------|
+| **Token Type** | JWT (JSON Web Token) via `djangorestframework-simplejwt` |
+| **Access Token Lifetime** | 1 day (configurable in `SIMPLE_JWT`) |
+| **Refresh Token Lifetime** | 7 days |
+| **Token Rotation** | Enabled — each refresh issues a new refresh token |
+| **Storage** | `localStorage` (`mm-access-token`, `mm-refresh-token`) |
+| **Auth Guard** | `requireAuth()` checks token on page load → redirects to login if missing |
+| **authFetch()** | Wrapper around `fetch()` that auto-attaches Bearer header + handles 401 refresh |
+| **User Scoping** | `get_queryset()` filters by `user=request.user` |
+| **Auto-Assign** | `perform_create()` sets `user=request.user` on new transactions |
 
 ---
 
@@ -433,12 +481,16 @@ This gives a fully functional admin panel at `/admin/` with:
 ### What's in place:
 | Aspect | Status | Details |
 |--------|--------|---------|
-| **CORS** | ✅ Configured | `django-cors-headers` with whitelisted origins |
-| **CSRF** | ✅ Middleware active | But API is exempt since it uses JSON-only (no cookies/sessions) |
+| **JWT Auth** | ✅ Implemented | SimpleJWT with access (1d) + refresh (7d) tokens |
+| **User Isolation** | ✅ | Each user's data is scoped via `user=request.user` in all queries |
+| **CORS** | ✅ Configured | `django-cors-headers` with whitelisted origins + credentials |
+| **CSRF** | ✅ Middleware active | API uses JWT (no cookies/sessions), so CSRF is not a concern |
 | **UUID PKs** | ✅ | Prevents IDOR (Insecure Direct Object Reference) via sequential ID guessing |
 | **Input validation** | ✅ | DRF serializer validates types, choices, amount > 0 |
 | **SQL injection** | ✅ Protected | Django ORM parameterizes all queries |
-| **XSS** | ⚠️ Partial | `innerHTML` is used in JS — currently safe because data is from your own API, but should sanitize in multi-user mode |
+| **Password hashing** | ✅ | Django's built-in PBKDF2 hasher |
+| **Token Refresh** | ✅ | Auto-refresh on 401 with rotation enabled |
+| **XSS** | ⚠️ Partial | `innerHTML` is used in JS — safe since data comes from your own API |
 
 ### What needs hardening for production:
 | Issue | Fix |
@@ -447,7 +499,7 @@ This gives a fully functional admin panel at `/admin/` with:
 | `DEBUG = True` | Set `False` in production |
 | `CORS_ALLOW_ALL_ORIGINS = True` | Remove; keep only whitelisted origins |
 | `ALLOWED_HOSTS = []` | Set to your domain |
-| No authentication | Add Django auth or JWT (Phase 2) |
+| JWT in `localStorage` | Consider `httpOnly` cookies for production (prevents XSS token theft) |
 | SQLite | Switch to PostgreSQL (Phase 5) |
 
 ---
@@ -455,13 +507,14 @@ This gives a fully functional admin panel at `/admin/` with:
 ## 11. Project Dependencies
 
 ```
-django>=5.0,<7.0          # Core framework — ORM, admin, request/response cycle
-djangorestframework>=3.15  # DRF — serializers, viewsets, routers, response formatting
-django-cors-headers>=4.0   # Enables cross-origin requests (frontend ≠ backend port)
+django>=5.0,<7.0                    # Core framework — ORM, admin, request/response cycle
+djangorestframework>=3.15            # DRF — serializers, viewsets, routers, response formatting
+django-cors-headers>=4.0             # Enables cross-origin requests (frontend ≠ backend port)
+djangorestframework-simplejwt>=5.3   # JWT authentication — access/refresh token management
 ```
 
 > [!NOTE]
-> Only 3 dependencies. This is intentionally minimal — no heavy ORM plugins, no Celery, no Redis. The app can be set up with a single `pip install`.
+> Only 4 dependencies. This is intentionally minimal — no heavy ORM plugins, no Celery, no Redis. The app can be set up with a single `pip install`.
 
 ---
 
@@ -488,7 +541,7 @@ http://127.0.0.1:8000/admin/          # (requires createsuperuser)
 
 ### 🎯 "Tell me about this project"
 
-> "I built a full-stack money management application using Django REST Framework for the backend and vanilla JavaScript for the frontend. It features a clean REST API with full CRUD, a dashboard with real-time aggregated statistics, dark/light theme support, and a responsive glassmorphism UI. I intentionally kept the frontend framework-free to demonstrate strong fundamentals in DOM manipulation, fetch API, and CSS architecture."
+> "I built a full-stack money management application with JWT authentication using Django REST Framework for the backend and vanilla JavaScript for the frontend. It features user registration and login with access/refresh token flow, user-scoped data isolation, a clean REST API with full CRUD, a dashboard with real-time aggregated statistics, dark/light theme support, and a responsive glassmorphism UI. I intentionally kept the frontend framework-free to demonstrate strong fundamentals in DOM manipulation, fetch API, and CSS architecture."
 
 ### 🎯 "Why UUID instead of auto-increment?"
 
@@ -506,9 +559,13 @@ http://127.0.0.1:8000/admin/          # (requires createsuperuser)
 
 > "Filtering happens server-side. The frontend builds query parameters like `?status=spent&category=food`, the DRF ViewSet's `get_queryset()` reads them from `request.query_params` and chains Django ORM `.filter()` calls. This keeps the filtering logic centralized and works regardless of dataset size."
 
+### 🎯 "How does authentication work?"
+
+> "I use SimpleJWT for token-based auth. On register/login, the backend issues a JWT access token (1-day TTL) and a refresh token (7-day TTL). The frontend stores these in localStorage and wraps every API call in an `authFetch()` function that auto-attaches the Bearer header. On 401, it transparently refreshes the token and retries the request. All transaction queries are scoped to `request.user` in the ViewSet's `get_queryset()`, and `perform_create()` auto-assigns the user FK — so users can never see each other's data."
+
 ### 🎯 "What would you add next?"
 
-> "The roadmap has 5 remaining phases: (1) User authentication with Django auth or JWT so each user sees only their transactions, (2) Dashboard charts with Chart.js, (3) AI-powered auto-categorization, (4) AWS deployment with ECS, RDS PostgreSQL, S3, and CloudFront, (5) Budget alerts and recurring transactions. The single-model design was intentional — adding a User FK is a one-line model change plus a migration."
+> "The roadmap has 4 remaining phases: (1) Dashboard charts with Chart.js, (2) AI-powered auto-categorization, (3) AWS deployment with ECS, RDS PostgreSQL, S3, and CloudFront, (4) Budget alerts and recurring transactions. The auth foundation is already in place, so future phases just need new endpoints and UI components."
 
 ### 🎯 "How does the summary endpoint work?"
 
