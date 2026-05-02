@@ -7,6 +7,7 @@ const CATEGORY_EMOJI = { food:'🍕', transport:'🚗', shopping:'🛍️', bill
 const CATEGORY_LABELS = { food:'Food & Dining', transport:'Transport & Fuel', shopping:'Shopping', bills:'Bills & Utilities', health:'Health & Medical', entertainment:'Entertainment', salary:'Salary & Income', freelance:'Freelance Income', investment:'Investments', other:'Miscellaneous' };
 const CATEGORY_COLORS = { food:'#f59e0b', transport:'#3b82f6', shopping:'#ec4899', bills:'#8b5cf6', health:'#ef4444', entertainment:'#14b8a6', salary:'#22c55e', freelance:'#0ea5e9', investment:'#10b981', other:'#64748b' };
 let deleteTargetId = null;
+let currentEditId = null;
 let expenseChartInstance = null;
 
 // ── Auth Guard ──
@@ -177,13 +178,22 @@ async function handleSubmit(e) {
   if (!data.date) { showToast('Please select a date', 'error'); return; }
   btn.classList.add('loading'); btn.disabled = true;
   try {
-    const res = await authFetch(`${API_BASE}/transactions/`, {
-      method: 'POST', body: JSON.stringify(data),
+    const url = currentEditId ? `${API_BASE}/transactions/${currentEditId}/` : `${API_BASE}/transactions/`;
+    const method = currentEditId ? 'PUT' : 'POST';
+    const res = await authFetch(url, {
+      method: method, body: JSON.stringify(data),
     });
     if (!res.ok) { const err = await res.json(); throw new Error(Object.values(err).flat().join(', ') || 'Failed to save'); }
-    showToast('Transaction saved successfully!', 'success');
+    showToast(`Transaction ${currentEditId ? 'updated' : 'saved'} successfully!`, 'success');
     resetForm();
-    setTimeout(() => showSection('dashboard'), 500);
+    setTimeout(() => {
+      // If we were editing, go back to the full list, otherwise dashboard
+      if (currentEditId) {
+        showSection('transactions');
+      } else {
+        showSection('dashboard');
+      }
+    }, 500);
   } catch (err) { showToast(err.message, 'error'); }
   finally { btn.classList.remove('loading'); btn.disabled = false; }
 }
@@ -197,6 +207,14 @@ function resetForm() {
   document.querySelector('.category-chip[data-category="food"]').classList.add('active');
   document.getElementById('category').value = 'food';
   setDefaultDate();
+  
+  currentEditId = null;
+  const titleEl = document.getElementById('formTitle');
+  const subEl = document.getElementById('formSubtitle');
+  const btnEl = document.querySelector('#submitBtn .btn-text');
+  if (titleEl) titleEl.textContent = 'Add Transaction';
+  if (subEl) subEl.textContent = 'Record a new income or expense';
+  if (btnEl) btnEl.textContent = 'Save Transaction';
 }
 
 // ── Dashboard ──
@@ -377,7 +395,10 @@ function renderTable(transactions) {
       <td class="text-right" style="font-weight:600;color:${txn.status === 'credited' ? 'var(--green)' : 'var(--red)'}">
         ${txn.status === 'credited' ? '+' : '-'}₹${parseFloat(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
       </td>
-      <td class="text-center">
+      <td class="text-center" style="white-space: nowrap;">
+        <button class="action-btn" onclick="editTransaction('${txn.id}')" title="Edit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
         <button class="action-btn" onclick="confirmDelete('${txn.id}')" title="Delete">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         </button>
@@ -389,7 +410,47 @@ function formatDate(dateStr) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── Delete ──
+// ── Edit & Delete ──
+async function editTransaction(id) {
+  try {
+    const res = await authFetch(`${API_BASE}/transactions/${id}/`);
+    if (!res) return;
+    if (!res.ok) throw new Error('Failed to fetch transaction details');
+    const txn = await res.json();
+    
+    currentEditId = id;
+    
+    // Populate form
+    document.getElementById('amount').value = txn.amount;
+    document.getElementById('description').value = txn.description || '';
+    document.getElementById('date').value = txn.date;
+    
+    // Status
+    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    const statusBtn = document.querySelector(`.toggle-btn[data-status="${txn.status}"]`);
+    if (statusBtn) statusBtn.classList.add('active');
+    document.getElementById('status').value = txn.status;
+    
+    // Category
+    document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+    const catChip = document.querySelector(`.category-chip[data-category="${txn.category}"]`);
+    if (catChip) catChip.classList.add('active');
+    document.getElementById('category').value = txn.category;
+    
+    // Update UI headers
+    const titleEl = document.getElementById('formTitle');
+    const subEl = document.getElementById('formSubtitle');
+    const btnEl = document.querySelector('#submitBtn .btn-text');
+    if (titleEl) titleEl.textContent = 'Edit Transaction';
+    if (subEl) subEl.textContent = 'Update your transaction details';
+    if (btnEl) btnEl.textContent = 'Update Transaction';
+    
+    showSection('add-transaction');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 function initModal() {
   document.getElementById('cancelDelete').addEventListener('click', closeModal);
   document.getElementById('confirmDelete').addEventListener('click', executeDelete);
