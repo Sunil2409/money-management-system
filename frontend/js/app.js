@@ -5,7 +5,9 @@
 const API_BASE = 'http://127.0.0.1:8000/api';
 const CATEGORY_EMOJI = { food:'🍕', transport:'🚗', shopping:'🛍️', bills:'💡', health:'🏥', entertainment:'🎬', salary:'💰', freelance:'💻', investment:'📈', other:'📋' };
 const CATEGORY_LABELS = { food:'Food & Dining', transport:'Transport & Fuel', shopping:'Shopping', bills:'Bills & Utilities', health:'Health & Medical', entertainment:'Entertainment', salary:'Salary & Income', freelance:'Freelance Income', investment:'Investments', other:'Miscellaneous' };
+const CATEGORY_COLORS = { food:'#f59e0b', transport:'#3b82f6', shopping:'#ec4899', bills:'#8b5cf6', health:'#ef4444', entertainment:'#14b8a6', salary:'#22c55e', freelance:'#0ea5e9', investment:'#10b981', other:'#64748b' };
 let deleteTargetId = null;
+let expenseChartInstance = null;
 
 // ── Auth Guard ──
 function getToken() { return localStorage.getItem('mm-access-token'); }
@@ -23,7 +25,7 @@ async function authFetch(url, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
   const res = await fetch(url, { ...options, headers });
-  if (res.status === 401) {
+  if (res.status === 401 || res.status === 403) {
     // Try refresh
     const refreshed = await refreshToken();
     if (refreshed) {
@@ -31,7 +33,7 @@ async function authFetch(url, options = {}) {
       return fetch(url, { ...options, headers });
     }
     logout();
-    return res;
+    return null;
   }
   return res;
 }
@@ -56,21 +58,23 @@ async function refreshToken() {
 function logout() {
   localStorage.removeItem('mm-access-token');
   localStorage.removeItem('mm-refresh-token');
-  window.location.href = 'login.html';
+  window.location.replace('login.html');
 }
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   initTheme(); initNavigation(); initForm(); initFilters(); initModal();
-  setDefaultDate(); loadDashboard(); loadUserProfile();
+  setDefaultDate(); 
+  loadUserProfile();
+  loadDashboard(); 
 });
 
 // ── User Profile ──
 async function loadUserProfile() {
   try {
     const res = await authFetch(`${API_BASE}/auth/me/`);
-    if (res.ok) {
+    if (res && res.ok) {
       const user = await res.json();
       const userInfoEl = document.getElementById('userInfo');
       if (userInfoEl) {
@@ -82,8 +86,17 @@ async function loadUserProfile() {
             <div class="user-email">${user.email}</div>
           </div>`;
       }
+    } else if (!res) {
+      // If authFetch returned null/undefined, it means we're logging out
+      return;
+    } else {
+      // If the backend returned a non-200, assume token is completely busted and force logout
+      logout();
     }
-  } catch (err) { console.error('Profile load error:', err); }
+  } catch (err) { 
+    console.error('Profile load error:', err);
+    logout(); // Force logout on critical network error for the main profile load
+  }
 }
 
 // ── Theme ──
@@ -190,15 +203,20 @@ function resetForm() {
 async function loadDashboard() {
   try {
     const summaryRes = await authFetch(`${API_BASE}/transactions/summary/`);
-    if (summaryRes.ok) {
+    if (summaryRes && summaryRes.ok) {
       const summary = await summaryRes.json();
       animateValue('totalCredited', summary.total_credited);
       animateValue('totalSpent', summary.total_spent);
       animateValue('netBalance', summary.balance);
       document.getElementById('txnCount').textContent = summary.transaction_count;
+      
+      // Render Chart
+      if (summary.category_breakdown) {
+        renderChart(summary.category_breakdown);
+      }
     }
     const txnRes = await authFetch(`${API_BASE}/transactions/`);
-    if (txnRes.ok) {
+    if (txnRes && txnRes.ok) {
       const data = await txnRes.json();
       const transactions = Array.isArray(data) ? data : (data.results || []);
       renderRecentTransactions(transactions);
@@ -212,6 +230,95 @@ function animateValue(elementId, value) {
   const prefix = elementId === 'txnCount' ? '' : '₹';
   const isNeg = num < 0;
   el.textContent = `${prefix}${isNeg ? '-' : ''}${Math.abs(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// ── Dashboard Chart ──
+function renderChart(categoryBreakdown) {
+  const canvas = document.getElementById('expenseChart');
+  const emptyState = document.getElementById('chartEmpty');
+  
+  if (!canvas) return;
+
+  const labels = [];
+  const data = [];
+  const backgroundColors = [];
+
+  // Filter only categories with > 0 spending
+  for (const [key, info] of Object.entries(categoryBreakdown)) {
+    const amount = parseFloat(info.total);
+    if (amount > 0) {
+      labels.push(CATEGORY_LABELS[key] || key);
+      data.push(amount);
+      backgroundColors.push(CATEGORY_COLORS[key] || CATEGORY_COLORS['other']);
+    }
+  }
+
+  if (data.length === 0) {
+    canvas.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  } else {
+    canvas.style.display = 'block';
+    emptyState.style.display = 'none';
+  }
+
+  // Destroy previous instance to avoid hover glitches
+  if (expenseChartInstance) {
+    expenseChartInstance.destroy();
+  }
+
+  // Determine current theme for text color
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#475569';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.08)';
+
+  expenseChartInstance = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: backgroundColors,
+        borderWidth: 0,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: textColor,
+            padding: 20,
+            font: { family: "'Inter', sans-serif", size: 12 }
+          }
+        },
+        tooltip: {
+          backgroundColor: isDark ? 'rgba(15, 17, 23, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+          titleColor: isDark ? '#f1f5f9' : '#1e293b',
+          bodyColor: isDark ? '#94a3b8' : '#475569',
+          borderColor: gridColor,
+          borderWidth: 1,
+          padding: 12,
+          boxPadding: 6,
+          usePointStyle: true,
+          callbacks: {
+            label: function(context) {
+              let label = context.label || '';
+              if (label) { label += ': '; }
+              if (context.parsed !== null) {
+                label += '₹' + context.parsed.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+              }
+              return label;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 function renderRecentTransactions(transactions) {
@@ -248,6 +355,7 @@ async function loadTransactions() {
   url += params.join('&');
   try {
     const res = await authFetch(url);
+    if (!res) return; // Means it's logging out
     if (!res.ok) throw new Error('Failed to load');
     const data = await res.json();
     const transactions = Array.isArray(data) ? data : (data.results || []);

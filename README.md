@@ -17,7 +17,7 @@ Built with **Django REST Framework** (backend), **JWT Authentication**, and **Va
 - **🔐 User Authentication** — Register & login with JWT tokens (access + refresh)
 - **👤 Multi-User Support** — Each user sees only their own transactions
 - **💳 Transaction Tracking** — Record income and expenses with amount, category, status, date, and description
-- **📊 Dashboard** — Summary cards showing total income, expenses, net balance, and transaction count
+- **📊 Dashboard & Analytics** — Summary cards and an interactive Chart.js doughnut chart for visual expense breakdown
 - **🏷️ Category System** — 10 built-in categories with emoji icons (Food, Transport, Shopping, Bills, Health, Entertainment, Salary, Freelance, Investment, Other)
 - **🔍 Filters** — Filter transactions by status (Income/Expense) and category
 - **🌙 Dark/Light Mode** — Theme toggle with localStorage persistence
@@ -205,7 +205,7 @@ User fills form → JavaScript collects data → authFetch() adds JWT header
 
 - [x] Phase 1 — Core CRUD + Responsive UI
 - [x] Phase 2 — User Authentication (JWT)
-- [ ] Phase 3 — Dashboard Charts (Chart.js)
+- [x] Phase 3 — Dashboard Charts (Chart.js)
 - [ ] Phase 4 — AI-powered Categorization
 - [ ] Phase 5 — AWS Deployment (ECS + RDS + S3 + CloudFront)
 - [ ] Phase 6 — Budget Alerts & Recurring Transactions

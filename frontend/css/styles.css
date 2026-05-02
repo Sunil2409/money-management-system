@@ -118,6 +118,9 @@ textarea { resize: vertical; min-height: 80px; }
 .category-chip:hover { border-color: var(--accent); color: var(--text-primary); }
 .category-chip.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent-light); }
 
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; align-items: start; }
+.chart-container { position: relative; height: 300px; display: flex; align-items: center; justify-content: center; }
+
 .transactions-list { display: flex; flex-direction: column; }
 .txn-item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); gap: 14px; animation: slideIn 0.3s ease; }
 .txn-item:last-child { border-bottom: none; }
@@ -173,6 +176,9 @@ textarea { resize: vertical; min-height: 80px; }
 .modal p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; }
 .modal-actions { display: flex; gap: 12px; justify-content: center; }
 
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 768px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }

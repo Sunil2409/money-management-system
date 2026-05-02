@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/auth.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <!-- SIDEBAR -->
@@ -119,17 +120,35 @@
                     </div>
                 </div>
             </div>
-            <div class="card recent-transactions">
-                <div class="card-header">
-                    <h2>Recent Transactions</h2>
-                    <button class="btn btn-ghost" onclick="showSection('transactions')">View All →</button>
+            
+            <div class="dashboard-grid">
+                <!-- CHART CARD -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h2>Expenses by Category</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="expenseChart"></canvas>
+                        <div id="chartEmpty" class="empty-state" style="display:none; padding: 20px;">
+                            <p>No expenses yet</p>
+                            <span>Add an expense to see your breakdown</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="transactions-list" id="recentTransactions">
-                    <div class="empty-state" id="dashboardEmpty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                        <p>No transactions yet</p>
-                        <span>Add your first transaction to get started</span>
-                        <button class="btn btn-primary" onclick="showSection('add-transaction')">+ Add Transaction</button>
+
+                <!-- RECENT TRANSACTIONS -->
+                <div class="card recent-transactions">
+                    <div class="card-header">
+                        <h2>Recent Transactions</h2>
+                        <button class="btn btn-ghost" onclick="showSection('transactions')">View All →</button>
+                    </div>
+                    <div class="transactions-list" id="recentTransactions">
+                        <div class="empty-state" id="dashboardEmpty">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                            <p>No transactions yet</p>
+                            <span>Add your first transaction to get started</span>
+                            <button class="btn btn-primary" onclick="showSection('add-transaction')">+ Add Transaction</button>
+                        </div>
                     </div>
                 </div>
             </div>

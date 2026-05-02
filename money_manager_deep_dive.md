@@ -565,7 +565,7 @@ http://127.0.0.1:8000/admin/          # (requires createsuperuser)
 
 ### 🎯 "What would you add next?"
 
-> "The roadmap has 4 remaining phases: (1) Dashboard charts with Chart.js, (2) AI-powered auto-categorization, (3) AWS deployment with ECS, RDS PostgreSQL, S3, and CloudFront, (4) Budget alerts and recurring transactions. The auth foundation is already in place, so future phases just need new endpoints and UI components."
+> "The roadmap has 3 remaining phases: (1) AI-powered auto-categorization, (2) AWS deployment with ECS, RDS PostgreSQL, S3, and CloudFront, (3) Budget alerts and recurring transactions. The auth foundation is already in place, so future phases just need new endpoints and UI components."
 
 ### 🎯 "How does the summary endpoint work?"
 
