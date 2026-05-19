@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,13 +20,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-h(&^1_u#*i*e+9zhxtu696z0l%n-+(a*(fv68_zbs(p$gkaylk"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+# ── Environment Configuration ─────────────────────────────────────
+# Load settings from environment variables, with sensible defaults for development
+SECRET_KEY = config(
+    'SECRET_KEY',
+    default='django-insecure-h(&^1_u#*i*e+9zhxtu696z0l%n-+(a*(fv68_zbs(p$gkaylk'
+)
+DEBUG = config('DEBUG', default=True, cast=bool)
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='localhost,127.0.0.1',
+    cast=Csv()
+)
 
 
 # Application definition
@@ -145,11 +151,34 @@ SIMPLE_JWT = {
 }
 
 # ── CORS Settings ─────────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-CORS_ALLOW_ALL_ORIGINS = True  # Dev only — remove in production
+# Default to localhost origins in dev; use CORS_ALLOWED_ORIGINS env var for production
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5500,http://127.0.0.1:5500',
+    cast=Csv()
+)
+# IMPORTANT: Only set to True in development! Production requires explicit origin whitelisting.
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
+# ── Production Security Settings ─────────────────────────────────────────────────
+# These settings are optional but HIGHLY RECOMMENDED for production deployments.
+# Enable by setting in .env or uncommenting below for production.
+#
+# SECURE_SSL_REDIRECT: Redirect all HTTP to HTTPS (requires SSL certificate)
+# SESSION_COOKIE_SECURE: Only send session cookies over HTTPS
+# CSRF_COOKIE_SECURE: Only send CSRF cookies over HTTPS
+# SECURE_HSTS_SECONDS: HTTP Strict Transport Security (forces HTTPS for 1 year)
+# SECURE_HSTS_INCLUDE_SUBDOMAINS: Include subdomains in HSTS
+#
+# For production, add to .env:
+#   SECURE_SSL_REDIRECT=True
+#   SESSION_COOKIE_SECURE=True
+#   CSRF_COOKIE_SECURE=True
+#   SECURE_HSTS_SECONDS=31536000
+#   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
