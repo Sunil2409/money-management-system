@@ -1,0 +1,152 @@
+# ============================================================
+# GitHub Actions CI/CD Pipeline — Money Manager
+# ============================================================
+# Triggers: Push/PR to main
+# Jobs:
+#   1. lint    — Code style checks (flake8)
+#   2. test    — Unit/integration tests with PostgreSQL (pytest + coverage)
+#   3. docker  — Validate Docker image builds successfully
+# ============================================================
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ── Job 1: Lint ─────────────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run flake8
+        run: |
+          cd backend
+          flake8 . --count --show-source --statistics
+
+  # ── Job 2: Test ─────────────────────────────────────────
+  test:
+    name: 🧪 Test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: test_money_manager
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_money_manager"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DEBUG: "True"
+      SECRET_KEY: "ci-test-secret-key-not-for-production"
+      DB_ENGINE: "django.db.backends.postgresql"
+      DB_NAME: "test_money_manager"
+      DB_USER: "test_user"
+      DB_PASSWORD: "test_password"
+      DB_HOST: "localhost"
+      DB_PORT: "5432"
+      REDIS_URL: "redis://localhost:6379/0"
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+      CORS_ALLOWED_ORIGINS: "http://localhost"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run migrations
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+
+      - name: Run tests with coverage
+        run: |
+          cd backend
+          pytest -v --cov --cov-report=term-missing --cov-fail-under=80
+
+  # ── Job 3: Docker Build ─────────────────────────────────
+  docker-build:
+    name: 🐳 Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t money-manager-backend:${{ github.sha }} \
+            -f backend/Dockerfile \
+            backend/
+
+      - name: Verify image
+        run: |
+          docker images money-manager-backend:${{ github.sha }}
