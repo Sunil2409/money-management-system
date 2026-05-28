@@ -4,9 +4,17 @@ API Views for the Transaction resource.
 Uses DRF's ModelViewSet for full CRUD + a custom 'summary' action.
 All queries are scoped to the authenticated user — each user can
 only see, create, and manage their own transactions.
+
+Performance:
+    - select_related('user') prevents N+1 queries
+    - Summary endpoint is cached in Redis with per-user keys
+    - Cache is invalidated on any write operation (create/update/delete)
 """
 
+import logging
 from decimal import Decimal
+
+from django.core.cache import cache
 from django.db.models import Sum, Count
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -15,6 +23,11 @@ from rest_framework.response import Response
 
 from .models import Transaction
 from .serializers import TransactionSerializer
+
+logger = logging.getLogger(__name__)
+
+# Cache TTL for summary endpoint (5 minutes)
+SUMMARY_CACHE_TTL = 300
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -32,32 +45,63 @@ class TransactionViewSet(viewsets.ModelViewSet):
     """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'category', 'date']
 
     def get_queryset(self):
         """
         Return only the authenticated user's transactions.
-        Optionally filter by 'status' and 'category' query parameters.
+        Uses select_related to prevent N+1 queries on user FK.
+        Supports filtering via django-filter (status, category, date).
         """
-        qs = Transaction.objects.filter(user=self.request.user)
-        status_filter = self.request.query_params.get('status')
-        category_filter = self.request.query_params.get('category')
-
-        if status_filter:
-            qs = qs.filter(status=status_filter)
-        if category_filter:
-            qs = qs.filter(category=category_filter)
-
-        return qs
+        return (
+            Transaction.objects
+            .select_related('user')
+            .filter(user=self.request.user)
+        )
 
     def perform_create(self, serializer):
-        """Automatically set the user field to the authenticated user."""
-        serializer.save(user=self.request.user)
+        """Save transaction with authenticated user and invalidate summary cache."""
+        instance = serializer.save(user=self.request.user)
+        cache.delete(f'summary_{self.request.user.id}')
+        logger.info(
+            "Transaction created: id=%s user=%s amount=%s category=%s",
+            instance.id, self.request.user.username,
+            instance.amount, instance.category,
+        )
+
+    def perform_update(self, serializer):
+        """Update transaction and invalidate summary cache."""
+        instance = serializer.save()
+        cache.delete(f'summary_{self.request.user.id}')
+        logger.info(
+            "Transaction updated: id=%s user=%s",
+            instance.id, self.request.user.username,
+        )
+
+    def perform_destroy(self, instance):
+        """Delete transaction and invalidate summary cache."""
+        tx_id = instance.id
+        cache.delete(f'summary_{self.request.user.id}')
+        instance.delete()
+        logger.info(
+            "Transaction deleted: id=%s user=%s",
+            tx_id, self.request.user.username,
+        )
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """
         Returns aggregated spending statistics for the current user.
+        Results are cached per-user in Redis with a 5-minute TTL.
+        Cache is automatically invalidated on create/update/delete.
         """
+        cache_key = f'summary_{request.user.id}'
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            logger.debug("Summary cache HIT for user=%s", request.user.username)
+            return Response(cached_result)
+
+        logger.debug("Summary cache MISS for user=%s", request.user.username)
         transactions = self.get_queryset()
 
         total_spent = transactions.filter(status='spent').aggregate(
@@ -83,10 +127,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
             for item in category_data
         }
 
-        return Response({
+        result = {
             'total_spent': str(total_spent),
             'total_credited': str(total_credited),
             'balance': str(total_credited - total_spent),
             'transaction_count': transactions.count(),
             'category_breakdown': category_breakdown,
-        })
+        }
+
+        cache.set(cache_key, result, timeout=SUMMARY_CACHE_TTL)
+        return Response(result)

@@ -91,6 +91,11 @@ class Transaction(models.Model):
         ordering = ['-date', '-created_at']
         verbose_name = 'Transaction'
         verbose_name_plural = 'Transactions'
+        indexes = [
+            models.Index(fields=['user', '-date'], name='idx_user_date'),
+            models.Index(fields=['user', 'status'], name='idx_user_status'),
+            models.Index(fields=['user', 'category'], name='idx_user_category'),
+        ]
 
     def __str__(self):
         return f"{self.get_status_display()} ₹{self.amount} — {self.get_category_display()} ({self.date})"
