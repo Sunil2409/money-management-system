@@ -18,6 +18,7 @@ from django.core.cache import cache
 from django.db.models import Sum, Count
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -32,19 +33,25 @@ SUMMARY_CACHE_TTL = 300
 
 class TransactionViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Transaction CRUD operations.
-    All queries are scoped to request.user.
+    ViewSet for Transaction CRUD operations with pagination and filtering.
+    All queries are scoped to request.user for data isolation.
 
     Endpoints:
-        GET    /api/transactions/          → List user's transactions
-        POST   /api/transactions/          → Create a transaction
-        GET    /api/transactions/{id}/     → Retrieve a transaction
-        PUT    /api/transactions/{id}/     → Update a transaction
-        DELETE /api/transactions/{id}/     → Delete a transaction
-        GET    /api/transactions/summary/  → Get user's spending summary
+        GET    /api/transactions/?page=1                          → List user's transactions (paginated)
+        GET    /api/transactions/?status=spent&category=food      → Filter transactions
+        POST   /api/transactions/                                  → Create a transaction
+        GET    /api/transactions/{id}/                             → Retrieve a transaction
+        PUT    /api/transactions/{id}/                             → Update a transaction
+        DELETE /api/transactions/{id}/                             → Delete a transaction
+        GET    /api/transactions/summary/                          → Get user's spending summary (cached)
+
+    Pagination: 25 items per page by default (configurable via PAGE_SIZE setting)
+    Filtering: Supports status, category, and date via query parameters
+    Caching: Summary endpoint results cached per-user with 5-minute TTL
     """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = PageNumberPagination  # 25 items/page by default (from settings.PAGE_SIZE)
     filterset_fields = ['status', 'category', 'date']
 
     def get_queryset(self):
@@ -52,11 +59,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
         Return only the authenticated user's transactions.
         Uses select_related to prevent N+1 queries on user FK.
         Supports filtering via django-filter (status, category, date).
+        Automatically paginated by PageNumberPagination.
+        Results ordered by most recent first.
         """
         return (
             Transaction.objects
             .select_related('user')
             .filter(user=self.request.user)
+            .order_by('-date', '-created_at')  # Most recent first
         )
 
     def perform_create(self, serializer):
@@ -94,6 +104,18 @@ class TransactionViewSet(viewsets.ModelViewSet):
         Returns aggregated spending statistics for the current user.
         Results are cached per-user in Redis with a 5-minute TTL.
         Cache is automatically invalidated on create/update/delete.
+
+        Returns:
+            {
+                "total_spent": "150.00",
+                "total_credited": "5000.00",
+                "balance": "4850.00",
+                "transaction_count": 3,
+                "category_breakdown": {
+                    "food": {"total": "100.00", "count": 1},
+                    "transport": {"total": "50.00", "count": 1}
+                }
+            }
         """
         cache_key = f'summary_{request.user.id}'
         cached_result = cache.get(cache_key)

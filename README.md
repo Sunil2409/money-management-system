@@ -1,29 +1,60 @@
 # 💰 Money Manager
 
-A modern, full-stack money management application with **user authentication** to track income and expenses with a clean, responsive UI.
+A modern, full-stack money management application with **secure JWT authentication** to track income and expenses with a clean, responsive UI.
 
-Built with **Django REST Framework** (backend), **JWT Authentication**, and **Vanilla JavaScript** (frontend).
+Built with **Django REST Framework** (backend), **httpOnly Cookie-based JWT**, and **Vanilla JavaScript** (frontend).
 
-![Dashboard](https://img.shields.io/badge/Status-Active-22c55e?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat-square&logo=python&logoColor=white)
+**🌐 [Live Demo](https://money-manager.onrender.com)** | **📚 [API Documentation (Swagger)](https://money-manager.onrender.com/api/docs/)**
+
+---
+
+![Status](https://img.shields.io/badge/Status-Active-22c55e?style=flat-square)
+![CI](https://github.com/Sunil2409/money-management-system/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.12-3776ab?style=flat-square&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-5.x+-092e20?style=flat-square&logo=django&logoColor=white)
-![JWT](https://img.shields.io/badge/Auth-JWT-f59e0b?style=flat-square&logo=jsonwebtokens&logoColor=white)
+![Security](https://img.shields.io/badge/Auth-httpOnly%20JWT-10b981?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-6366f1?style=flat-square)
 
 ---
 
 ## ✨ Features
 
-- **🔐 User Authentication** — Register & login with JWT tokens (access + refresh)
+- **🔐 Secure Authentication** — Register & login with httpOnly JWT tokens (XSS-proof)
 - **👤 Multi-User Support** — Each user sees only their own transactions
 - **💳 Transaction Tracking** — Record income and expenses with amount, category, status, date, and description
 - **📊 Dashboard & Analytics** — Summary cards and an interactive Chart.js doughnut chart for visual expense breakdown
 - **🏷️ Category System** — 10 built-in categories with emoji icons (Food, Transport, Shopping, Bills, Health, Entertainment, Salary, Freelance, Investment, Other)
-- **🔍 Filters** — Filter transactions by status (Income/Expense) and category
+- **🔍 Filters & Pagination** — Filter transactions by status/category and paginate results (25 per page)
 - **🌙 Dark/Light Mode** — Theme toggle with localStorage persistence
 - **📱 Responsive Design** — Works seamlessly on desktop, tablet, and mobile
 - **🛡️ Django Admin** — Built-in admin panel for advanced data management
-- **🔄 REST API** — Clean RESTful API with full CRUD operations
+- **🔄 REST API** — Clean RESTful API with full CRUD operations + Swagger/Redoc docs
+- **⚡ Rate Limiting** — Brute-force protection on login (5 req/min per IP)
+- **📦 Production-Ready** — Multi-stage Docker, PostgreSQL, Redis caching, comprehensive tests
+
+---
+
+## 🔐 Security Features
+
+### httpOnly Cookie-Based Authentication
+Unlike traditional localStorage JWT storage (vulnerable to XSS attacks), this application uses:
+
+- **httpOnly Cookies**: JWT tokens stored in browser httpOnly cookies (inaccessible to JavaScript)
+- **Secure Flag**: Cookies only sent over HTTPS in production
+- **SameSite=Strict**: CSRF attack prevention (only send on same-domain requests)
+- **Automatic Refresh**: Access token auto-refreshes before expiry without user action
+
+This eliminates the risk of XSS attacks stealing authentication tokens.
+
+### Rate Limiting
+- Login/Register endpoints: **5 requests per minute per IP** (brute-force protection)
+- General API: **20 requests per minute** (anonymous), **60 requests per minute** (authenticated)
+
+### Additional Security
+- CSRF protection via Django middleware
+- CORS restricted to configured origins only
+- SQL injection prevention (Django ORM)
+- Password validation (minimum length + complexity)
 
 ---
 
@@ -32,10 +63,13 @@ Built with **Django REST Framework** (backend), **JWT Authentication**, and **Va
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Django 5.x + Django REST Framework |
-| **Authentication** | SimpleJWT (access + refresh tokens) |
+| **Authentication** | SimpleJWT + httpOnly Cookies |
 | **Frontend** | HTML5 + Vanilla CSS + JavaScript |
-| **Database** | SQLite (dev) → PostgreSQL (production) |
-| **API** | RESTful JSON API |
+| **Database** | PostgreSQL (production), SQLite (dev) |
+| **Caching** | Redis (session & query caching) |
+| **API Docs** | drf-spectacular (OpenAPI 3.0, Swagger UI, Redoc) |
+| **Containerization** | Docker + Docker Compose (multi-stage builds, non-root user) |
+| **CI/CD** | GitHub Actions (lint, test with 80%+ coverage, Docker build) |
 | **Design** | Dark-mode-first, Glassmorphism, Inter font |
 
 ---
@@ -44,171 +78,255 @@ Built with **Django REST Framework** (backend), **JWT Authentication**, and **Va
 
 ```
 MoneyManager/
-├── backend/                    # Django project
+├── backend/                      # Django project
 │   ├── manage.py
-│   ├── config/                 # Project settings
-│   │   ├── settings.py         # DRF, JWT, CORS config
-│   │   ├── urls.py
+│   ├── pytest.ini                # Test configuration
+│   ├── config/                   # Project settings
+│   │   ├── settings.py           # DRF, JWT, CORS, drf-spectacular config
+│   │   ├── urls.py               # Root URL routing + API docs
+│   │   ├── authentication.py     # CookieJWTAuthentication
+│   │   ├── exceptions.py         # Custom exception handler
 │   │   └── wsgi.py
-│   ├── accounts/               # Auth app (Phase 2)
-│   │   ├── serializers.py      # Register & user serializers
-│   │   ├── views.py            # Register, login, profile views
-│   │   └── urls.py             # Auth URL routing
-│   ├── transactions/           # Main app
-│   │   ├── models.py           # Transaction model (UUID PK + User FK)
-│   │   ├── serializers.py      # DRF serializers + validation
-│   │   ├── views.py            # API ViewSet (user-scoped) + summary
-│   │   ├── urls.py             # DRF router
-│   │   └── admin.py            # Admin panel config
-│   └── requirements.txt
-├── frontend/                   # Static frontend
-│   ├── index.html              # Main app (requires auth)
-│   ├── login.html              # Login/Register page
+│   ├── accounts/                 # Auth app
+│   │   ├── views.py              # Register, login, logout, /me
+│   │   ├── serializers.py        # User & registration serializers
+│   │   ├── urls.py               # Auth routes
+│   │   ├── tests.py              # Auth endpoint tests
+│   │   └── models.py
+│   ├── transactions/             # Core app
+│   │   ├── views.py              # CRUD + summary (paginated, cached)
+│   │   ├── models.py             # Transaction model (UUID, user-scoped)
+│   │   ├── serializers.py        # Transaction serializers + validation
+│   │   ├── urls.py               # DRF router
+│   │   ├── tests.py              # Comprehensive CRUD & filtering tests
+│   │   └── admin.py
+│   ├── Dockerfile                # Multi-stage production build
+│   ├── entrypoint.sh             # Wait for DB, run migrations
+│   ├── requirements.txt          # Production dependencies
+│   └── requirements-dev.txt      # Dev dependencies (pytest, flake8)
+├── frontend/                     # Static frontend
+│   ├── index.html                # Main app (requires auth)
+│   ├── login.html                # Login/Register page
 │   ├── css/
-│   │   ├── styles.css          # Design system
-│   │   └── auth.css            # Auth page styles
+│   │   ├── styles.css            # Design system
+│   │   └── auth.css              # Auth page styles
 │   └── js/
-│       ├── app.js              # Main app logic (with JWT)
-│       └── auth.js             # Login/register logic
-├── README.md
-└── money_manager_deep_dive.md  # Technical deep dive
+│       ├── app.js                # Main app logic (cookie auth)
+│       └── auth.js               # Login/register (cookie handling)
+├── nginx/                        # Reverse proxy config
+│   └── nginx.conf
+├── docker-compose.yml            # Full stack orchestration
+├── .env.example                  # Environment template
+├── .github/workflows/ci.yml      # GitHub Actions CI pipeline
+├── README.md                     # This file
+└── money_manager_deep_dive.md    # Architecture & design decisions
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### Prerequisites
+### Development (Local)
 
-- Python 3.10+
-- pip
+#### Prerequisites
+- Python 3.12+, pip
+- PostgreSQL 16+ (optional, uses SQLite by default)
 
-### 1. Clone the repository
+#### Setup
 
 ```bash
+# Clone repository
 git clone https://github.com/Sunil2409/money-management-system.git
 cd money-management-system
-```
 
-### 2. Set up the backend
-
-```bash
-# Create virtual environment
+# Backend setup
 python3 -m venv venv
-source venv/bin/activate        # macOS/Linux
-# venv\Scripts\activate         # Windows
-
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Run migrations
+source venv/bin/activate  # Windows: venv\Scripts\activate
 cd backend
+pip install -r requirements-dev.txt
 python manage.py migrate
-
-# Start the backend server
 python manage.py runserver 8000
-```
 
-### 3. Serve the frontend
-
-Open a new terminal:
-
-```bash
+# Frontend setup (new terminal)
 cd frontend
 python3 -m http.server 5500
+
+# Open http://127.0.0.1:5500 in browser
 ```
 
-### 4. Open the app
+---
 
-Navigate to **http://127.0.0.1:5500** in your browser.
-You'll be redirected to the **login page** — create an account to get started!
+### Production (Docker)
+
+```bash
+# Build and run all services
+docker compose up -d --build
+
+# Check logs
+docker compose logs -f backend
+
+# Stop all services
+docker compose down
+```
+
+The app will be available at **http://localhost** (port 80).
+
+**Important**: Before deploying to production, update `.env`:
+```bash
+cp .env.example .env
+# Edit .env with production values:
+# - SECRET_KEY: Generate with `python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'`
+# - SECURE_COOKIE_ENABLED=True (requires HTTPS)
+# - SECURE_SSL_REDIRECT=True
+# - SESSION_COOKIE_SECURE=True
+# - CSRF_COOKIE_SECURE=True
+# - Database credentials
+# - ALLOWED_HOSTS (add your domain)
+# - CORS_ALLOWED_ORIGINS (add your frontend URL)
+```
 
 ---
 
 ## 🔐 Authentication Flow
 
 ```
-Register/Login → JWT tokens issued → Stored in localStorage
-→ Every API request includes Authorization: Bearer <token>
-→ Token expires (1 day) → Auto-refresh with refresh token (7 days)
-→ Logout clears tokens → Redirects to login
-```
+┌─ REGISTER ───────────────────────┐
+│                                   │
+│ 1. POST /api/auth/register/       │
+│    { username, email, password }  │
+│                                   │
+│ 2. Backend validates & creates    │
+│    user, generates JWT tokens     │
+│                                   │
+│ 3. Sets httpOnly cookies:         │
+│    - access_token (1 day)         │
+│    - refresh_token (7 days)       │
+│                                   │
+│ 4. Frontend redirects to app      │
+└───────────────────────────────────┘
 
-| Step | What Happens |
-|------|-------------|
-| **Register** | `POST /api/auth/register/` → Creates user → Returns JWT tokens |
-| **Login** | `POST /api/auth/login/` → Validates credentials → Returns JWT tokens |
-| **API Calls** | Every `fetch()` includes `Authorization: Bearer <access_token>` |
-| **Token Refresh** | On 401 → auto-POST to `/api/auth/token/refresh/` with refresh token |
-| **Logout** | Clears `localStorage` tokens → Redirects to `login.html` |
+┌─ LOGIN ───────────────────────────┐
+│                                    │
+│ 1. POST /api/auth/login/           │
+│    { username, password }          │
+│                                    │
+│ 2. Backend validates credentials   │
+│    generates JWT tokens            │
+│                                    │
+│ 3. Sets httpOnly cookies           │
+│    (automatic browser handling)    │
+│                                    │
+│ 4. Frontend redirects to app       │
+└────────────────────────────────────┘
+
+┌─ API REQUESTS ────────────────────┐
+│                                    │
+│ 1. fetch(url, {                   │
+│    credentials: 'include'         │ ← Include cookies
+│  })                               │
+│                                    │
+│ 2. Browser automatically sends    │
+│    access_token cookie             │
+│                                    │
+│ 3. Backend validates token via    │
+│    CookieJWTAuthentication        │
+│                                    │
+│ 4. On 401 (expired):              │
+│    Auto-refresh from refresh_token│
+│    Set new access_token cookie    │
+│    Retry original request          │
+└────────────────────────────────────┘
+
+┌─ LOGOUT ──────────────────────────┐
+│                                    │
+│ 1. POST /api/auth/logout/         │
+│                                    │
+│ 2. Backend clears cookies         │
+│    (max_age=0)                    │
+│                                    │
+│ 3. Frontend redirects to login    │
+└────────────────────────────────────┘
+```
 
 ---
 
 ## 📡 API Endpoints
 
-### Authentication
+### Interactive Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register/` | Create a new account |
-| `POST` | `/api/auth/login/` | Get JWT access + refresh tokens |
-| `POST` | `/api/auth/token/refresh/` | Refresh expired access token |
-| `GET` | `/api/auth/me/` | Get current user profile |
+- **Swagger UI**: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) (interactive, test endpoints)
+- **ReDoc**: [http://localhost:8000/api/docs/redoc/](http://localhost:8000/api/docs/redoc/) (read-only, prettier)
+- **OpenAPI Schema**: [http://localhost:8000/api/schema/](http://localhost:8000/api/schema/) (JSON)
 
-### Transactions (requires auth)
+### Authentication Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/transactions/` | List user's transactions |
-| `POST` | `/api/transactions/` | Create a new transaction |
-| `GET` | `/api/transactions/{id}/` | Retrieve a transaction |
-| `PUT` | `/api/transactions/{id}/` | Update a transaction |
-| `DELETE` | `/api/transactions/{id}/` | Delete a transaction |
-| `GET` | `/api/transactions/summary/` | Get spending summary & stats |
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|-----------|
+| `POST` | `/api/auth/register/` | Create account (sets httpOnly cookies) | 5/min |
+| `POST` | `/api/auth/login/` | Login (sets httpOnly cookies) | 5/min |
+| `POST` | `/api/auth/token/refresh/` | Refresh access token (uses refresh cookie) | 60/min |
+| `GET` | `/api/auth/me/` | Get current user profile | 60/min |
+| `POST` | `/api/auth/logout/` | Logout (clears cookies) | 60/min |
 
-### Query Parameters (GET /api/transactions/)
+### Transaction Endpoints (requires auth)
 
-| Parameter | Values | Description |
-|-----------|--------|-------------|
-| `status` | `spent`, `credited` | Filter by transaction status |
-| `category` | `food`, `transport`, `shopping`, `bills`, `health`, `entertainment`, `salary`, `freelance`, `investment`, `other` | Filter by category |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/transactions/?page=1` | List user's transactions (paginated, 25/page) | ✅ |
+| `POST` | `/api/transactions/` | Create a new transaction | ✅ |
+| `GET` | `/api/transactions/{id}/` | Retrieve a transaction | ✅ |
+| `PUT` | `/api/transactions/{id}/` | Update a transaction | ✅ |
+| `DELETE` | `/api/transactions/{id}/` | Delete a transaction | ✅ |
+| `GET` | `/api/transactions/summary/` | Get spending summary & stats (cached) | ✅ |
 
-### Example: Authenticated Request
+### Query Parameters
 
 ```bash
-# Register
-curl -X POST http://127.0.0.1:8000/api/auth/register/ \
-  -H "Content-Type: application/json" \
-  -d '{"username": "sunil", "email": "sunil@test.com", "password": "test1234"}'
+# Filter by status
+GET /api/transactions/?status=spent
 
-# Create transaction with token
-curl -X POST http://127.0.0.1:8000/api/transactions/ \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-access-token>" \
-  -d '{"amount": "250.00", "category": "food", "status": "spent", "description": "Lunch", "date": "2026-05-02"}'
+# Filter by category
+GET /api/transactions/?category=food
+
+# Pagination
+GET /api/transactions/?page=2
+
+# Combine filters & pagination
+GET /api/transactions/?status=spent&category=food&page=1
 ```
 
 ---
 
-## 🔄 Data Flow
+## 🧪 Testing
 
+```bash
+cd backend
+
+# Run all tests with coverage
+pytest -v --cov --cov-report=term-missing --cov-fail-under=80
+
+# Run specific test file
+pytest accounts/tests.py -v
+
+# Run with verbose output
+pytest -v --tb=short
 ```
-User fills form → JavaScript collects data → authFetch() adds JWT header
-→ fetch() POST to /api/transactions/ → Django validates token
-→ DRF Serializer validates data → ORM saves to SQLite (with user FK)
-→ JSON response → JavaScript updates DOM → Dashboard refreshes
-```
+
+**Current Coverage**: 80%+ (accounts auth + transactions CRUD)
 
 ---
 
-## 🗺️ Roadmap
+## 🗂️ Roadmap
 
 - [x] Phase 1 — Core CRUD + Responsive UI
 - [x] Phase 2 — User Authentication (JWT)
 - [x] Phase 3 — Dashboard Charts (Chart.js)
-- [ ] Phase 4 — AI-powered Categorization
-- [ ] Phase 5 — AWS Deployment (ECS + RDS + S3 + CloudFront)
-- [ ] Phase 6 — Budget Alerts & Recurring Transactions
+- [x] Phase 3.5 — Security Audit (httpOnly cookies, rate limiting, tests)
+- [x] Phase 3.6 — API Documentation (Swagger/Redoc)
+- [ ] Phase 4 — Budget Alerts & Notifications
+- [ ] Phase 5 — Recurring Transactions & Templates
+- [ ] Phase 6 — AWS Deployment (ECS + RDS + S3 + CloudFront)
+- [ ] Phase 7 — Mobile App (React Native)
 
 ---
 
@@ -216,9 +334,10 @@ User fills form → JavaScript collects data → authFetch() adds JWT header
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Run tests & ensure 80%+ coverage (`pytest --cov --cov-fail-under=80`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ---
 
@@ -234,4 +353,18 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ---
 
-<p align="center">Built with ❤️ using Django & JavaScript</p>
+## 🔗 Resources
+
+- [Django REST Framework](https://www.django-rest-framework.org/)
+- [drf-spectacular Documentation](https://drf-spectacular.readthedocs.io/)
+- [JWT Security Best Practices](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/)
+- [OWASP Cheat Sheet: Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+
+---
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Made%20with-Django%20%2B%20JavaScript-blue?style=for-the-badge" alt="Made with Django + JavaScript">
+  <br/>
+  Built with ❤️ by Sunil Kumar E
+</p>
+

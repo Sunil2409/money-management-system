@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third-party
     "rest_framework",
+    "drf_spectacular",
     "corsheaders",
     "rest_framework_simplejwt",
     "django_filters",
@@ -152,7 +153,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # ── Django REST Framework ─────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'config.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -168,8 +169,29 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/minute',
-        'user': '60/minute',
+        'anon': '20/minute',          # General rate limit for anonymous users
+        'user': '60/minute',          # General rate limit for authenticated users
+        'login': '5/minute',          # Strict limit for login/register (brute-force protection)
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# ── drf-spectacular Configuration ──────────────────────────────────────
+# Generates OpenAPI 3.0 schema and Swagger/Redoc documentation
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Money Manager API',
+    'DESCRIPTION': 'RESTful API for tracking income and expenses with user authentication.',
+    'VERSION': '1.0.0',
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_AUTHENTICATION': None,  # Swagger UI can test authenticated endpoints
+    'SCHEMA_PATH_PREFIX': r'/api',
+    'CONTACT': {
+        'name': 'Money Manager',
+        'url': 'https://github.com/yourusername/money-manager',
+    },
+    'LICENSE': {
+        'name': 'MIT',
+        'url': 'https://opensource.org/licenses/MIT',
     },
 }
 
@@ -191,6 +213,12 @@ CORS_ALLOWED_ORIGINS = config(
 # IMPORTANT: Only set to True in development! Production requires explicit origin whitelisting.
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
+
+# ── httpOnly Cookie Settings ───────────────────────────────────────────────────
+# Controls whether JWT tokens are set as Secure & SameSite=Strict cookies
+# Set to True in production (requires HTTPS), False for local development (HTTP)
+SECURE_COOKIE_ENABLED = config('SECURE_COOKIE_ENABLED', default=False, cast=bool)
+
 # ── Production Security Settings ─────────────────────────────────────────────────
 # These settings are optional but HIGHLY RECOMMENDED for production deployments.
 # Enable by setting in .env or uncommenting below for production.
@@ -207,6 +235,7 @@ CORS_ALLOW_CREDENTIALS = True
 #   CSRF_COOKIE_SECURE=True
 #   SECURE_HSTS_SECONDS=31536000
 #   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+#   SECURE_COOKIE_ENABLED=True
 
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)

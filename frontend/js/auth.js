@@ -1,17 +1,43 @@
 /**
- * Auth Page — Login & Registration Logic
- * Handles JWT token storage and redirects to main app.
+ * Auth Page — Login & Registration Logic (httpOnly Cookie-based)
+ * 
+ * Security: Tokens are stored in httpOnly cookies by the server.
+ * Frontend no longer handles token storage/retrieval.
+ * All API requests automatically include cookies (credentials: 'include').
  */
-const API_BASE = 'http://127.0.0.1:8000/api';
+
+// Detect API base URL (supports both dev and prod environments)
+const API_BASE = window.location.origin.includes('localhost') 
+  ? 'http://127.0.0.1:8000/api'
+  : `${window.location.origin}/api`;
 
 // Apply saved theme
 const saved = localStorage.getItem('mm-theme') || 'dark';
 document.documentElement.setAttribute('data-theme', saved);
 
-// If already logged in, redirect to app
-if (localStorage.getItem('mm-access-token')) {
-  window.location.href = 'index.html';
+/**
+ * Check if user is already authenticated by attempting to fetch /me
+ * If authenticated (has valid access_token cookie), redirect to app
+ */
+async function checkAuthentication() {
+  try {
+    const res = await fetch(`${API_BASE}/auth/me/`, {
+      method: 'GET',
+      credentials: 'include', // Include cookies in request
+    });
+    
+    if (res.ok) {
+      // User is authenticated, redirect to main app
+      window.location.href = 'index.html';
+    }
+  } catch (err) {
+    // Not authenticated, stay on login page
+    console.debug('Not authenticated:', err.message);
+  }
 }
+
+// Check authentication on page load
+checkAuthentication();
 
 // ── Form Toggle ──
 document.getElementById('showRegister').addEventListener('click', (e) => {
@@ -40,28 +66,30 @@ document.getElementById('loginFormEl').addEventListener('submit', async (e) => {
     return;
   }
 
-  btn.classList.add('loading'); btn.disabled = true;
+  btn.classList.add('loading');
+  btn.disabled = true;
 
   try {
     const res = await fetch(`${API_BASE}/auth/login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Include cookies in request (receives Set-Cookie response)
       body: JSON.stringify({ username, password }),
     });
 
     if (!res.ok) {
       const data = await res.json();
-      throw new Error(data.detail || 'Invalid credentials');
+      throw new Error(data.detail || data.error?.message || 'Invalid credentials');
     }
 
-    const tokens = await res.json();
-    localStorage.setItem('mm-access-token', tokens.access);
-    localStorage.setItem('mm-refresh-token', tokens.refresh);
+    // Success! Tokens are now in httpOnly cookies (set by server via Set-Cookie header)
+    // Redirect to app
     window.location.href = 'index.html';
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
-    btn.classList.remove('loading'); btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.disabled = false;
   }
 });
 
@@ -85,28 +113,30 @@ document.getElementById('registerFormEl').addEventListener('submit', async (e) =
     return;
   }
 
-  btn.classList.add('loading'); btn.disabled = true;
+  btn.classList.add('loading');
+  btn.disabled = true;
 
   try {
     const res = await fetch(`${API_BASE}/auth/register/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Include cookies in request (receives Set-Cookie response)
       body: JSON.stringify({ username, email, password }),
     });
 
     if (!res.ok) {
       const data = await res.json();
-      const msg = Object.values(data).flat().join(', ');
+      const msg = data.detail || Object.values(data).flat().join(', ');
       throw new Error(msg || 'Registration failed');
     }
 
-    const data = await res.json();
-    localStorage.setItem('mm-access-token', data.tokens.access);
-    localStorage.setItem('mm-refresh-token', data.tokens.refresh);
+    // Success! Tokens are now in httpOnly cookies
+    // Redirect to app
     window.location.href = 'index.html';
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
-    btn.classList.remove('loading'); btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.disabled = false;
   }
 });
