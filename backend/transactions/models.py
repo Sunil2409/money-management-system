@@ -93,9 +93,18 @@ class Transaction(models.Model):
         verbose_name_plural = 'Transactions'
         indexes = [
             models.Index(fields=['user', '-date'], name='idx_user_date'),
-            models.Index(fields=['user', 'status'], name='idx_user_status'),
-            models.Index(fields=['user', 'category'], name='idx_user_category'),
+            models.Index(
+                fields=['user', 'status'], name='idx_user_status'
+            ),
+            models.Index(
+                fields=['user', 'category'], name='idx_user_category'
+            ),
         ]
 
     def __str__(self):
-        return f"{self.get_status_display()} ₹{self.amount} — {self.get_category_display()} ({self.date})"
+        status_display = self.get_status_display()
+        category_display = self.get_category_display()
+        return (
+            f"{status_display} ₹{self.amount} — "
+            f"{category_display} ({self.date})"
+        )

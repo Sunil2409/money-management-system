@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -21,10 +22,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # ── Environment Configuration ─────────────────────────────────────
-# Load settings from environment variables, with sensible defaults for development
+# Load settings from environment variables, with sensible
+# defaults for development
 SECRET_KEY = config(
     'SECRET_KEY',
-    default='django-insecure-h(&^1_u#*i*e+9zhxtu696z0l%n-+(a*(fv68_zbs(p$gkaylk'
+    default=(
+        'django-insecure-h(&^1_u#*i*e+9zhxtu696z0l%n-+'
+        '(a*(fv68_zbs(p$gkaylk'
+    )
 )
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config(
@@ -87,7 +92,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Automatically uses PostgreSQL when DB_ENGINE env var is set (Docker/production),
+# Automatically uses PostgreSQL when DB_ENGINE env var is set
+# (Docker/production), falls back to SQLite for local development.
 # falls back to SQLite for local development.
 
 DB_ENGINE = config('DB_ENGINE', default='django.db.backends.sqlite3')
@@ -117,16 +123,28 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "MinimumLengthValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "CommonPasswordValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "NumericPasswordValidator"
+        ),
     },
 ]
 
@@ -158,8 +176,12 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_EXCEPTION_HANDLER': 'config.exceptions.custom_exception_handler',
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_EXCEPTION_HANDLER': (
+        'config.exceptions.custom_exception_handler'
+    ),
+    'DEFAULT_PAGINATION_CLASS': (
+        'rest_framework.pagination.PageNumberPagination'
+    ),
     'PAGE_SIZE': 25,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -169,9 +191,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/minute',          # General rate limit for anonymous users
-        'user': '60/minute',          # General rate limit for authenticated users
-        'login': '5/minute',          # Strict limit for login/register (brute-force protection)
+        'anon': '20/minute',  # Anonymous users
+        'user': '60/minute',  # Authenticated users
+        'login': '5/minute',  # Brute-force protection
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -180,10 +202,13 @@ REST_FRAMEWORK = {
 # Generates OpenAPI 3.0 schema and Swagger/Redoc documentation
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Money Manager API',
-    'DESCRIPTION': 'RESTful API for tracking income and expenses with user authentication.',
+    'DESCRIPTION': (
+        'RESTful API for tracking income and expenses '
+        'with user authentication.'
+    ),
     'VERSION': '1.0.0',
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
-    'SERVE_AUTHENTICATION': None,  # Swagger UI can test authenticated endpoints
+    'SERVE_AUTHENTICATION': None,  # Swagger UI test endpoints
     'SCHEMA_PATH_PREFIX': r'/api',
     'CONTACT': {
         'name': 'Money Manager',
@@ -196,7 +221,6 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ── JWT Settings ──────────────────────────────────────────────────
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -204,23 +228,30 @@ SIMPLE_JWT = {
 }
 
 # ── CORS Settings ─────────────────────────────────────────────────
-# Default to localhost origins in dev; use CORS_ALLOWED_ORIGINS env var for production
+# Default to localhost origins in dev;
+# Use CORS_ALLOWED_ORIGINS env var for production
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:5500,http://127.0.0.1:5500',
     cast=Csv()
 )
-# IMPORTANT: Only set to True in development! Production requires explicit origin whitelisting.
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+# IMPORTANT: Only set to True in development!
+# Production requires explicit origin whitelisting.
+CORS_ALLOW_ALL_ORIGINS = config(
+    'CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool
+)
 CORS_ALLOW_CREDENTIALS = True
 
-# ── httpOnly Cookie Settings ───────────────────────────────────────────────────
-# Controls whether JWT tokens are set as Secure & SameSite=Strict cookies
-# Set to True in production (requires HTTPS), False for local development (HTTP)
-SECURE_COOKIE_ENABLED = config('SECURE_COOKIE_ENABLED', default=False, cast=bool)
+# ── httpOnly Cookie Settings ──────────────────────────────────────
+# Controls whether JWT tokens are set as Secure & SameSite=Strict
+# Set to True in production (requires HTTPS)
+# Set to False for local development (HTTP)
+SECURE_COOKIE_ENABLED = config(
+    'SECURE_COOKIE_ENABLED', default=False, cast=bool
+)
 
-# ── Production Security Settings ─────────────────────────────────────────────────
-# These settings are optional but HIGHLY RECOMMENDED for production deployments.
+# ── Production Security Settings ─────────────────────────────────────
+# These settings are optional but highly recommended for production.
 # Enable by setting in .env or uncommenting below for production.
 #
 # SECURE_SSL_REDIRECT: Redirect all HTTP to HTTPS (requires SSL certificate)
@@ -237,11 +268,21 @@ SECURE_COOKIE_ENABLED = config('SECURE_COOKIE_ENABLED', default=False, cast=bool
 #   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 #   SECURE_COOKIE_ENABLED=True
 
-SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
-CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
-SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_SSL_REDIRECT = config(
+    'SECURE_SSL_REDIRECT', default=False, cast=bool
+)
+SESSION_COOKIE_SECURE = config(
+    'SESSION_COOKIE_SECURE', default=False, cast=bool
+)
+CSRF_COOKIE_SECURE = config(
+    'CSRF_COOKIE_SECURE', default=False, cast=bool
+)
+SECURE_HSTS_SECONDS = config(
+    'SECURE_HSTS_SECONDS', default=0, cast=int
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    'SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool
+)
 
 # ── Redis Cache ───────────────────────────────────────────────────
 # Uses Redis when REDIS_URL is set (Docker/production),

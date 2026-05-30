@@ -17,7 +17,6 @@ Response format:
 import logging
 
 from rest_framework.views import exception_handler
-from rest_framework import status
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,11 @@ def custom_exception_handler(exc, context):
         error_body = {
             'error': {
                 'code': error_code,
-                'message': response.data[0] if response.data else 'An error occurred.',
+                'message': (
+                    response.data[0]
+                    if response.data
+                    else 'An error occurred.'
+                ),
             }
         }
     else:

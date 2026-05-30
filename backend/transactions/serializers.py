@@ -40,7 +40,8 @@ class TransactionSerializer(serializers.ModelSerializer):
     def validate_amount(self, value):
         """Ensure amount is positive."""
         if value <= 0:
-            raise serializers.ValidationError("Amount must be greater than zero.")
+            msg = "Amount must be greater than zero."
+            raise serializers.ValidationError(msg)
         return value
 
 

@@ -33,25 +33,26 @@ SUMMARY_CACHE_TTL = 300
 
 class TransactionViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Transaction CRUD operations with pagination and filtering.
+    ViewSet for Transaction CRUD operations with pagination.
+
     All queries are scoped to request.user for data isolation.
 
     Endpoints:
-        GET    /api/transactions/?page=1                          → List user's transactions (paginated)
-        GET    /api/transactions/?status=spent&category=food      → Filter transactions
-        POST   /api/transactions/                                  → Create a transaction
-        GET    /api/transactions/{id}/                             → Retrieve a transaction
-        PUT    /api/transactions/{id}/                             → Update a transaction
-        DELETE /api/transactions/{id}/                             → Delete a transaction
-        GET    /api/transactions/summary/                          → Get user's spending summary (cached)
+        GET    /api/transactions/?page=1          → List transactions
+        GET    /api/transactions/?status=...      → Filter transactions
+        POST   /api/transactions/                 → Create transaction
+        GET    /api/transactions/{id}/            → Retrieve transaction
+        PUT    /api/transactions/{id}/            → Update transaction
+        DELETE /api/transactions/{id}/            → Delete transaction
+        GET    /api/transactions/summary/         → Spending summary
 
-    Pagination: 25 items per page by default (configurable via PAGE_SIZE setting)
-    Filtering: Supports status, category, and date via query parameters
-    Caching: Summary endpoint results cached per-user with 5-minute TTL
+    Pagination: 25 items per page (configurable via PAGE_SIZE)
+    Filtering: status, category, and date via query parameters
+    Caching: Summary endpoint cached per-user with 5-minute TTL
     """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = PageNumberPagination  # 25 items/page by default (from settings.PAGE_SIZE)
+    pagination_class = PageNumberPagination
     filterset_fields = ['status', 'category', 'date']
 
     def get_queryset(self):
@@ -70,7 +71,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        """Save transaction with authenticated user and invalidate summary cache."""
+        """Save transaction with authenticated user."""
         instance = serializer.save(user=self.request.user)
         cache.delete(f'summary_{self.request.user.id}')
         logger.info(
@@ -120,7 +121,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
         cache_key = f'summary_{request.user.id}'
         cached_result = cache.get(cache_key)
         if cached_result:
-            logger.debug("Summary cache HIT for user=%s", request.user.username)
+            logger.debug(
+                "Summary cache HIT for user=%s", request.user.username
+            )
             return Response(cached_result)
 
         logger.debug("Summary cache MISS for user=%s", request.user.username)

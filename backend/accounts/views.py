@@ -1,29 +1,36 @@
 """
-Auth API Views — Register, Login (JWT via httpOnly cookies), and current user profile.
+Auth API Views — JWT httpOnly cookies, register, login, profile.
 
 Authentication Flow:
-    1. POST /api/auth/register/  → Create account → Sets httpOnly cookies (no token in response)
-    2. POST /api/auth/login/     → Sets access + refresh tokens in httpOnly cookies
-    3. GET  /api/auth/me/        → Returns current user profile (uses cookie auth)
-    4. POST /api/auth/token/refresh/ → Refresh token using httpOnly cookie, set new token cookie
+    1. POST /api/auth/register/  → Create account → httpOnly cookies
+    2. POST /api/auth/login/     → JWT tokens in httpOnly cookies
+    3. GET  /api/auth/me/        → Returns current user profile
+    4. POST /api/auth/token/refresh/ → Refresh token using cookie
     5. POST /api/auth/logout/    → Clear auth cookies
 
 Security:
-    - Access token stored in httpOnly, Secure, SameSite cookie (cannot be accessed by JS)
-    - Refresh token stored in separate httpOnly, Secure, SameSite cookie
-    - Login/register endpoints rate-limited to 5 requests per minute per IP (brute-force protection)
-    - Prevents XSS attacks that steal tokens from localStorage
+    - Access token: httpOnly, Secure, SameSite cookie (JS-inaccessible)
+    - Refresh token: httpOnly, Secure, SameSite cookie
+    - Rate-limited: 5 requests/minute per IP (brute-force protection)
+    - Prevents XSS attacks from stealing tokens via localStorage
 """
 
 import logging
 
 from django.conf import settings
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    throttle_classes,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 from rest_framework.throttling import AnonRateThrottle
 
 from .serializers import RegisterSerializer, UserSerializer
@@ -48,7 +55,7 @@ class LoginRateThrottle(AnonRateThrottle):
 def _set_auth_cookies(response, access_token, refresh_token):
     """
     Helper function to set JWT tokens in httpOnly cookies.
-    
+
     Args:
         response: Django Response object
         access_token: JWT access token string
@@ -64,7 +71,7 @@ def _set_auth_cookies(response, access_token, refresh_token):
         samesite='Strict' if settings.SECURE_COOKIE_ENABLED else 'Lax',
         path='/',
     )
-    
+
     # Refresh token cookie: long-lived (7 days)
     response.set_cookie(
         key=REFRESH_TOKEN_COOKIE,
@@ -87,7 +94,7 @@ def register_view(request):
     POST /api/auth/register/
     Body: { "username": "...", "email": "...", "password": "..." }
     Returns: 201 with user data. Auth tokens set in httpOnly cookies.
-    
+
     Rate limited to 5 requests per minute per IP (brute-force protection).
     """
     serializer = RegisterSerializer(data=request.data)
@@ -102,7 +109,10 @@ def register_view(request):
         response = Response(
             {
                 'user': UserSerializer(user).data,
-                'detail': 'Registration successful. Tokens set in httpOnly cookies.'
+                'detail': (
+                    'Registration successful. '
+                    'Tokens set in httpOnly cookies.'
+                )
             },
             status=status.HTTP_201_CREATED
         )
@@ -112,75 +122,77 @@ def register_view(request):
         "Registration failed: errors=%s",
         serializer.errors,
     )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        serializer.errors, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
-    Custom login view that sets JWT tokens in httpOnly cookies instead of returning in body.
+    Custom login view that sets JWT in httpOnly cookies.
+
     Rate limited to 5 requests per minute per IP (brute-force protection).
-    
+
     POST /api/auth/login/
     Body: { "username": "...", "password": "..." }
     Returns: 200 with user data. Tokens set in httpOnly cookies.
     """
     throttle_classes = [LoginRateThrottle]
-    
+
     def post(self, request, *args, **kwargs):
         """Override to set tokens in cookies and return user data."""
         response = super().post(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             access_token = response.data.pop('access', None)
             refresh_token = response.data.pop('refresh', None)
-            
-            # Get user info
-            user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
-            
+
             # Return user data instead of tokens
             response.data = {
                 'detail': 'Login successful. Tokens set in httpOnly cookies.',
             }
-            
+
             # If we have tokens, set them in cookies
             if access_token and refresh_token:
                 _set_auth_cookies(response, access_token, refresh_token)
-            
-            logger.info("User logged in: username=%s", request.data.get('username'))
-        
+
+            username = request.data.get('username')
+            logger.info("User logged in: username=%s", username)
+
         return response
 
 
 class CustomTokenRefreshView(TokenRefreshView):
     """
-    Custom token refresh view that uses httpOnly cookies and sets new token in cookie.
-    
+    Custom token refresh view using httpOnly cookies.
+
     POST /api/auth/token/refresh/
     Cookie: refresh_token (automatically sent by browser)
     Returns: 200 with new access token set in httpOnly cookie.
     """
-    
+
     def post(self, request, *args, **kwargs):
-        """Override to use cookie for refresh token and set new token in cookie."""
+        """Override to use cookie for refresh and set new token in cookie."""
         # Extract refresh token from cookie
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE)
-        
+
         if not refresh_token:
-            logger.warning("Token refresh attempted without refresh token cookie")
+            msg = "Token refresh attempted without refresh token cookie"
+            logger.warning(msg)
             return Response(
                 {'detail': 'Refresh token not found in cookies.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
+
         # Add refresh token to request data for parent class
         request.data._mutable = True
         request.data['refresh'] = refresh_token
-        
+
         response = super().post(request, *args, **kwargs)
-        
+
         if response.status_code == status.HTTP_200_OK:
             access_token = response.data.pop('access', None)
-            
+
             # Set new access token in cookie
             if access_token:
                 response.set_cookie(
@@ -189,13 +201,18 @@ class CustomTokenRefreshView(TokenRefreshView):
                     max_age=60 * 60 * 24,  # 1 day
                     httponly=True,
                     secure=settings.SECURE_COOKIE_ENABLED,
-                    samesite='Strict' if settings.SECURE_COOKIE_ENABLED else 'Lax',
+                    samesite=(
+                        'Strict'
+                        if settings.SECURE_COOKIE_ENABLED
+                        else 'Lax'
+                    ),
                     path='/',
                 )
-            
-            response.data = {'detail': 'Token refreshed. New access token set in cookie.'}
+
+            msg = 'Token refreshed. New access token set in cookie.'
+            response.data = {'detail': msg}
             logger.info("Token refreshed successfully")
-        
+
         return response
 
 
@@ -215,7 +232,7 @@ def logout_view(request):
     # Clear both tokens
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path='/')
     response.delete_cookie(REFRESH_TOKEN_COOKIE, path='/')
-    
+
     logger.info("User logged out: username=%s", request.user.username)
     return response
 

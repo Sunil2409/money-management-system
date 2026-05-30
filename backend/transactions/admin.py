@@ -8,7 +8,14 @@ from .models import Transaction
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ['date', 'amount', 'category', 'status', 'description_short', 'created_at']
+    list_display = [
+        'date',
+        'amount',
+        'category',
+        'status',
+        'description_short',
+        'created_at',
+    ]
     list_filter = ['status', 'category', 'date']
     search_fields = ['description']
     ordering = ['-date', '-created_at']
@@ -16,5 +23,8 @@ class TransactionAdmin(admin.ModelAdmin):
 
     def description_short(self, obj):
         """Truncate long descriptions in the list view."""
-        return obj.description[:60] + '...' if len(obj.description) > 60 else obj.description
+        desc = obj.description
+        if len(desc) > 60:
+            return desc[:60] + '...'
+        return desc
     description_short.short_description = 'Description'

@@ -167,7 +167,10 @@ class TestTransactionRead:
 
         assert response.status_code == status.HTTP_200_OK
         # Response could be paginated (list) or a dict with 'results'
-        data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        if isinstance(response.data, list):
+            data = response.data
+        else:
+            data = response.data.get('results', [])
         assert len(data) == 2
         # Verify other user's transaction is not included
         amounts = [float(t['amount']) for t in data]
@@ -202,7 +205,10 @@ class TestTransactionRead:
 
         response = self.client.get('/api/transactions/?status=spent')
 
-        data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        if isinstance(response.data, list):
+            data = response.data
+        else:
+            data = response.data.get('results', [])
         assert all(t['status'] == 'spent' for t in data)
         assert len(data) == 2
 
@@ -210,7 +216,10 @@ class TestTransactionRead:
         """Test filtering transactions by category."""
         response = self.client.get('/api/transactions/?category=food')
 
-        data = response.data if isinstance(response.data, list) else response.data.get('results', [])
+        if isinstance(response.data, list):
+            data = response.data
+        else:
+            data = response.data.get('results', [])
         assert all(t['category'] == 'food' for t in data)
         assert len(data) == 1
 
@@ -373,4 +382,3 @@ class TestTransactionSummary:
         assert 'food' in breakdown
         assert 'transport' in breakdown
         assert 'salary' in breakdown
-

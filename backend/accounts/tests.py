@@ -53,7 +53,11 @@ class TestAuthRegistration:
 
     def test_register_duplicate_username(self):
         """Test registration fails with existing username."""
-        User.objects.create_user(username='duplicate', email='old@example.com', password='pass')
+        User.objects.create_user(
+            username='duplicate',
+            email='old@example.com',
+            password='pass'
+        )
 
         response = self.client.post('/api/auth/register/', {
             'username': 'duplicate',
@@ -205,4 +209,3 @@ class TestAuthLogout:
         response = client.post('/api/auth/logout/')
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
