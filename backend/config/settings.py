@@ -308,5 +308,6 @@ else:
     }
 
 # ── Logging ───────────────────────────────────────────────────────
-from config.logging_config import LOGGING_CONFIG  # noqa: E402
-LOGGING = LOGGING_CONFIG
+from config.logging_config import LOGGING_CONFIG as LOGGING_DICT  # noqa: E402
+LOGGING_CONFIG = 'logging.config.dictConfig'
+LOGGING = LOGGING_DICT
