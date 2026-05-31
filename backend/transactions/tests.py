@@ -30,11 +30,8 @@ class TestTransactionCreate:
             username='txntest',
             password='securepass123'
         )
-        # Login
-        self.client.post('/api/auth/login/', {
-            'username': 'txntest',
-            'password': 'securepass123',
-        })
+        # Use force_authenticate instead of POST to avoid rate limiting
+        self.client.force_authenticate(user=self.user)
 
     def test_create_transaction_valid(self):
         """Test creating a valid transaction."""
@@ -155,11 +152,8 @@ class TestTransactionRead:
             date=date(2024, 1, 17),
         )
 
-        # Login
-        self.client.post('/api/auth/login/', {
-            'username': 'readtest',
-            'password': 'securepass123',
-        })
+        # Use force_authenticate instead of POST to avoid rate limiting
+        self.client.force_authenticate(user=self.user)
 
     def test_list_transactions(self):
         """Test listing user's transactions."""
@@ -244,11 +238,8 @@ class TestTransactionUpdate:
             date=date(2024, 1, 15),
         )
 
-        # Login
-        self.client.post('/api/auth/login/', {
-            'username': 'updatetest',
-            'password': 'securepass123',
-        })
+        # Use force_authenticate instead of POST to avoid rate limiting
+        self.client.force_authenticate(user=self.user)
 
     def test_update_transaction(self):
         """Test updating a transaction."""
@@ -296,11 +287,8 @@ class TestTransactionDelete:
             date=date(2024, 1, 15),
         )
 
-        # Login
-        self.client.post('/api/auth/login/', {
-            'username': 'deletetest',
-            'password': 'securepass123',
-        })
+        # Use force_authenticate instead of POST to avoid rate limiting
+        self.client.force_authenticate(user=self.user)
 
     def test_delete_transaction(self):
         """Test deleting a transaction."""
@@ -347,11 +335,8 @@ class TestTransactionSummary:
             date=date(2024, 1, 1),
         )
 
-        # Login
-        self.client.post('/api/auth/login/', {
-            'username': 'summarytest',
-            'password': 'securepass123',
-        })
+        # Use force_authenticate instead of POST to avoid rate limiting
+        self.client.force_authenticate(user=self.user)
 
     def test_get_summary(self):
         """Test getting transaction summary."""
@@ -379,6 +364,7 @@ class TestTransactionSummary:
         response = self.client.get('/api/transactions/summary/')
 
         breakdown = response.data['category_breakdown']
+        # Only spent transactions appear in breakdown (salary is credited)
         assert 'food' in breakdown
         assert 'transport' in breakdown
-        assert 'salary' in breakdown
+        assert 'salary' not in breakdown  # credited, not spent
