@@ -250,6 +250,16 @@ SECURE_COOKIE_ENABLED = config(
     'SECURE_COOKIE_ENABLED', default=False, cast=bool
 )
 
+# Controls whether JWT tokens are set as httpOnly (browser-only, not accessible to JavaScript)
+# Set to True in production for security (prevents XSS attacks)
+# Set to False for development/debugging (allows JavaScript to see tokens)
+# Note: Some Electron/embedded browser environments may require httpOnly=False
+HTTPONLY_COOKIES_ENABLED = config(
+    'HTTPONLY_COOKIES_ENABLED', 
+    default=not DEBUG,  # True in production (DEBUG=False), False in development
+    cast=bool
+)
+
 # ── Production Security Settings ─────────────────────────────────────
 # These settings are optional but highly recommended for production.
 # Enable by setting in .env or uncommenting below for production.

@@ -702,6 +702,147 @@ LOGGING_CONFIG = {
 
 ## 5. Security Architecture
 
+### 5.1 httpOnly Cookie-Based JWT Authentication
+
+#### Problem Solved
+Traditional localStorage-based JWT storage is vulnerable to XSS attacks:
+```javascript
+// Vulnerable pattern:
+const token = localStorage.getItem('access_token');  // Attacker can steal this
+```
+
+#### Solution Implemented
+HttpOnly cookies are browser-managed and inaccessible to JavaScript:
+```javascript
+// Secure pattern:
+// Browser automatically sends cookie, application cannot access it
+fetch('/api/transactions/', { credentials: 'include' });
+// Cookies included automatically, cannot be stolen by JS
+```
+
+#### Implementation Details
+
+**Backend Authentication Class (`config/authentication.py`):**
+```python
+class CookieJWTAuthentication(JWTAuthentication):
+    def authenticate(self, request):
+        # Step 1: Try to extract token from httpOnly cookie
+        access_token = request.COOKIES.get('access_token')
+        
+        if not access_token:
+            # Step 2: Fallback to Bearer token in Authorization header
+            # This allows API testing tools (Postman, curl) to still work
+            auth_header = self.get_header(request)  
+        
+        # Step 3: Validate token (SimpleJWT handles this)
+        return (user, None)  # Returns (user, None) tuple
+```
+
+**Setting Cookies (`accounts/views.py`):**
+```python
+def _set_auth_cookies(response, access_token, refresh_token):
+    response.set_cookie(
+        key='access_token',
+        value=str(access_token),
+        max_age=60 * 60 * 24,              # 1 day
+        httponly=settings.HTTPONLY_COOKIES_ENABLED,  # True in prod, False in dev
+        secure=settings.SECURE_COOKIE_ENABLED,       # True on HTTPS, False on HTTP
+        samesite='Strict' if settings.SECURE_COOKIE_ENABLED else 'Lax',
+        path='/',
+    )
+    # Refresh token cookie (7 days)...
+```
+
+#### Environment-Based Configuration
+
+The `HTTPONLY_COOKIES_ENABLED` setting is environment-aware:
+
+| Environment | DEBUG | HTTPONLY_COOKIES_ENABLED | SECURE_COOKIE_ENABLED | Use Case |
+|-------------|-------|-------------------------|----------------------|----------|
+| Development | True | False | False | Local debugging, DevTools inspection |
+| Staging | False | True | False | Testing with HTTP (self-signed cert) |
+| Production | False | True | True | Live environment with HTTPS |
+| Testing | False | False | False | Unit/integration tests |
+
+**In `config/settings.py`:**
+```python
+HTTPONLY_COOKIES_ENABLED = config(
+    'HTTPONLY_COOKIES_ENABLED', 
+    default=not DEBUG,  # Automatically True when DEBUG=False
+    cast=bool
+)
+```
+
+#### CORS Configuration for Cookie Auth
+
+Cookie-based auth requires explicit CORS configuration:
+```python
+# config/settings.py
+CORS_ALLOW_CREDENTIALS = True  # CRITICAL: Allow credentials in CORS requests
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost,http://127.0.0.1',
+    cast=Csv()
+)
+```
+
+**Frontend Configuration:**
+```javascript
+// frontend/js/app.js
+fetch('/api/auth/me/', {
+    method: 'GET',
+    credentials: 'include',  // CRITICAL: Include cookies in request
+})
+```
+
+Without `credentials: 'include'`, the browser will NOT send cookies automatically.
+
+#### Cookie Lifecycle
+
+```
+1. User login: POST /api/auth/login/
+   └─ Backend validates credentials
+   └─ Generates access_token (1 day) and refresh_token (7 days)
+   └─ Sets both in httpOnly cookies with Set-Cookie headers
+   └─ Browser stores cookies automatically
+
+2. Subsequent requests: GET /api/transactions/
+   └─ Browser automatically includes cookies (due to credentials: 'include')
+   └─ Backend's CookieJWTAuthentication extracts token from request.COOKIES
+   └─ SimpleJWT validates the token
+   └─ Request proceeds with user context
+
+3. Access token expiry (after 1 day):
+   └─ Frontend detects 401 response
+   └─ Frontend calls POST /api/auth/token/refresh/
+   └─ Backend uses refresh_token from cookie to issue new access_token
+   └─ Sets new access_token in cookie
+   └─ User session continues seamlessly
+
+4. Refresh token expiry (after 7 days):
+   └─ Backend rejects refresh request (refresh_token expired)
+   └─ Frontend redirects to login page
+   └─ User must login again
+
+5. Logout: POST /api/auth/logout/
+   └─ Backend clears both cookies (max_age=0)
+   └─ Browser deletes cookies
+   └─ User logged out completely
+```
+
+#### Security Properties
+
+| Threat | Protection |
+|--------|------------|
+| **XSS (JavaScript injection)** | httpOnly flag prevents JS access; cookie cannot be stolen |
+| **CSRF (Cross-Site Request Forgery)** | SameSite=Strict prevents cookie transmission on cross-site requests |
+| **Session Hijacking (MITM)** | Secure flag ensures HTTPS-only transmission |
+| **Token Theft via Network Sniffer** | HTTPS encryption protects token in transit |
+| **Long-lived Token Abuse** | Short access_token (1 day) limits exposure window |
+| **Refresh Token Reuse** | Refresh token rotation (enabled) invalidates token after first use |
+
+### 5.2
+
 ### 5.1 Defense-in-Depth Layers
 
 ```

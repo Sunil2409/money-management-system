@@ -6,10 +6,9 @@
  * No more localStorage tokens to steal via XSS.
  */
 
-// Detect API base URL (supports both dev and prod environments)
-const API_BASE = window.location.origin.includes('localhost') 
-  ? 'http://127.0.0.1:8000/api'
-  : `${window.location.origin}/api`;
+// Use relative URL to go through nginx proxy
+// This ensures same-origin requests and proper cookie handling
+const API_BASE = '/api';
 
 const CATEGORY_EMOJI = { food:'🍕', transport:'🚗', shopping:'🛍️', bills:'💡', health:'🏥', entertainment:'🎬', salary:'💰', freelance:'💻', investment:'📈', other:'📋' };
 const CATEGORY_LABELS = { food:'Food & Dining', transport:'Transport & Fuel', shopping:'Shopping', bills:'Bills & Utilities', health:'Health & Medical', entertainment:'Entertainment', salary:'Salary & Income', freelance:'Freelance Income', investment:'Investments', other:'Miscellaneous' };

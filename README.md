@@ -41,10 +41,14 @@ Unlike traditional localStorage JWT storage (vulnerable to XSS attacks), this ap
 
 - **httpOnly Cookies**: JWT tokens stored in browser httpOnly cookies (inaccessible to JavaScript)
 - **Secure Flag**: Cookies only sent over HTTPS in production
-- **SameSite=Strict**: CSRF attack prevention (only send on same-domain requests)
+- **SameSite=Strict/Lax**: CSRF attack prevention (only send on same-domain requests)
 - **Automatic Refresh**: Access token auto-refreshes before expiry without user action
+- **Environment-Aware**: httpOnly setting is automatically configured based on `DEBUG` mode
+  - **Development** (DEBUG=True): httpOnly=False for easier debugging
+  - **Production** (DEBUG=False): httpOnly=True for maximum security
+  - Override via `HTTPONLY_COOKIES_ENABLED` environment variable
 
-This eliminates the risk of XSS attacks stealing authentication tokens.
+This eliminates the risk of XSS attacks stealing authentication tokens in production environments.
 
 ### Rate Limiting
 - Login/Register endpoints: **5 requests per minute per IP** (brute-force protection)
@@ -176,6 +180,8 @@ The app will be available at **http://localhost** (port 80).
 cp .env.example .env
 # Edit .env with production values:
 # - SECRET_KEY: Generate with `python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'`
+# - DEBUG=False (CRITICAL: Disables debug mode)
+# - HTTPONLY_COOKIES_ENABLED=True (for XSS protection)
 # - SECURE_COOKIE_ENABLED=True (requires HTTPS)
 # - SECURE_SSL_REDIRECT=True
 # - SESSION_COOKIE_SECURE=True

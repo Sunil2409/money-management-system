@@ -6,10 +6,9 @@
  * All API requests automatically include cookies (credentials: 'include').
  */
 
-// Detect API base URL (supports both dev and prod environments)
-const API_BASE = window.location.origin.includes('localhost') 
-  ? 'http://127.0.0.1:8000/api'
-  : `${window.location.origin}/api`;
+// Use relative URL to go through nginx proxy
+// This ensures same-origin requests and proper cookie handling
+const API_BASE = '/api';
 
 // Apply saved theme
 const saved = localStorage.getItem('mm-theme') || 'dark';
@@ -28,7 +27,7 @@ async function checkAuthentication() {
     
     if (res.ok) {
       // User is authenticated, redirect to main app
-      window.location.href = 'index.html';
+      window.location.href = '/';
     }
   } catch (err) {
     // Not authenticated, stay on login page
@@ -70,6 +69,7 @@ document.getElementById('loginFormEl').addEventListener('submit', async (e) => {
   btn.disabled = true;
 
   try {
+    console.log('Attempting login with credentials:', username);
     const res = await fetch(`${API_BASE}/auth/login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,15 +77,23 @@ document.getElementById('loginFormEl').addEventListener('submit', async (e) => {
       body: JSON.stringify({ username, password }),
     });
 
+    console.log('Login response status:', res.status);
+    console.log('Login response headers:', res.headers);
+    console.log('Current cookies:', document.cookie);
+
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.detail || data.error?.message || 'Invalid credentials');
     }
 
+    console.log('Login successful! Redirecting to app...');
+    console.log('Cookies after login:', document.cookie);
+    
     // Success! Tokens are now in httpOnly cookies (set by server via Set-Cookie header)
-    // Redirect to app
-    window.location.href = 'index.html';
+    // Redirect to app (use absolute path to ensure proper navigation)
+    window.location.href = '/';
   } catch (err) {
+    console.error('Login error:', err);
     errorEl.textContent = err.message;
   } finally {
     btn.classList.remove('loading');

