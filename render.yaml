@@ -79,10 +79,15 @@ services:
         value: https://money-manager-frontend.onrender.com
         sync: false
 
-  # ── Frontend: Static Site ───────────────────────────────────
-  - type: static
-    name: money-manager-frontend
-    env: static
+  # ── Redis (Cache) ───────────────────────────────────────────
+  - type: redis
+    name: money-manager-redis
+    plan: free
+    ipAllowList: []
+
+# ── Frontend: Static Site ──────────────────────────────────────
+staticSites:
+  - name: money-manager-frontend
     branch: main
     rootDir: frontend
     buildCommand: echo "No build needed — static HTML/CSS/JS"
@@ -96,13 +101,8 @@ services:
         value: https://money-manager-backend.onrender.com/api
         sync: false
 
-  # ── Redis (Cache) ───────────────────────────────────────────
-  - type: redis
-    name: money-manager-redis
-    plan: free
-    ipAllowList: []
-
 # ── Database ──────────────────────────────────────────────────
 databases:
   - name: money-manager-db
     plan: free
+
