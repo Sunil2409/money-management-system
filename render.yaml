@@ -9,7 +9,7 @@
 services:
   # ── Backend: Django REST API (Docker) ───────────────────────
   - type: web
-    name: money-manager-backend
+    name: mm-sunil2409-backend
     env: docker
     region: oregon
     plan: free
@@ -23,9 +23,9 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_HOSTS
-        value: money-manager-backend.onrender.com
+        value: mm-sunil2409-backend.onrender.com
       - key: DJANGO_ALLOWED_HOSTS
-        value: money-manager-backend.onrender.com
+        value: mm-sunil2409-backend.onrender.com
 
       # ── Database ─────────────────────────────────────────────
       # Render auto-sets DATABASE_URL to internal PostgreSQL URL
@@ -33,13 +33,13 @@ services:
         value: django.db.backends.postgresql
       - key: DATABASE_URL
         fromDatabase:
-          name: money-manager-db
+          name: mm-sunil2409-db
           property: connectionString
 
       # ── Redis (optional, for caching) ────────────────────────
       - key: REDIS_URL
         fromService:
-          name: money-manager-redis
+          name: mm-sunil2409-redis
           type: redis
           property: connectionString
 
@@ -62,17 +62,17 @@ services:
       # ── CORS ─────────────────────────────────────────────────
       # Auto-resolves to the frontend static site URL
       - key: CORS_ALLOWED_ORIGINS
-        value: https://money-manager-frontend.onrender.com
+        value: https://mm-sunil2409-frontend.onrender.com
 
   # ── Redis (Cache) ───────────────────────────────────────────
   - type: redis
-    name: money-manager-redis
+    name: mm-sunil2409-redis
     plan: free
     ipAllowList: []
 
   # ── Frontend: Static Site ──────────────────────────────────────
   - type: web
-    name: money-manager-frontend
+    name: mm-sunil2409-frontend
     env: static
     branch: main
     rootDir: frontend
@@ -84,9 +84,9 @@ services:
         destination: /index.html
     envVars:
       - key: API_BASE_URL
-        value: https://money-manager-backend.onrender.com/api
+        value: https://mm-sunil2409-backend.onrender.com/api
 
 # ── Database ──────────────────────────────────────────────────
 databases:
-  - name: money-manager-db
+  - name: mm-sunil2409-db
     plan: free
