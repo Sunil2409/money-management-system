@@ -286,6 +286,9 @@ HTTPONLY_COOKIES_ENABLED = config(
 #   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 #   SECURE_COOKIE_ENABLED=True
 
+# Allow Django to recognize HTTPS from Render's load balancer
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 SECURE_SSL_REDIRECT = config(
     'SECURE_SSL_REDIRECT', default=False, cast=bool
 )
