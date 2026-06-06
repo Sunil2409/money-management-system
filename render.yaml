@@ -80,6 +80,9 @@ services:
     staticPublishPath: .
     routes:
       - type: rewrite
+        source: /api/*
+        destination: https://mm-sunil2409-backend.onrender.com/api/*
+      - type: rewrite
         source: /*
         destination: /index.html
     envVars:
