@@ -20,27 +20,21 @@ services:
       # ── Django Core ──────────────────────────────────────────
       - key: DEBUG
         value: "False"
-        sync: false
       - key: SECRET_KEY
         generateValue: true
-        sync: false
       - key: ALLOWED_HOSTS
         value: money-manager-backend.onrender.com
-        sync: false
       - key: DJANGO_ALLOWED_HOSTS
         value: money-manager-backend.onrender.com
-        sync: false
 
       # ── Database ─────────────────────────────────────────────
       # Render auto-sets DATABASE_URL to internal PostgreSQL URL
       - key: DB_ENGINE
         value: django.db.backends.postgresql
-        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: money-manager-db
           property: connectionString
-        sync: false
 
       # ── Redis (optional, for caching) ────────────────────────
       - key: REDIS_URL
@@ -48,36 +42,27 @@ services:
           name: money-manager-redis
           type: redis
           property: connectionString
-        sync: false
 
       # ── Security ─────────────────────────────────────────────
       - key: SECURE_COOKIE_ENABLED
         value: "True"
-        sync: false
       - key: HTTPONLY_COOKIES_ENABLED
         value: "True"
-        sync: false
       - key: SECURE_SSL_REDIRECT
         value: "True"
-        sync: false
       - key: SESSION_COOKIE_SECURE
         value: "True"
-        sync: false
       - key: CSRF_COOKIE_SECURE
         value: "True"
-        sync: false
       - key: SECURE_HSTS_SECONDS
         value: "31536000"
-        sync: false
       - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
         value: "True"
-        sync: false
 
       # ── CORS ─────────────────────────────────────────────────
       # Auto-resolves to the frontend static site URL
       - key: CORS_ALLOWED_ORIGINS
         value: https://money-manager-frontend.onrender.com
-        sync: false
 
   # ── Redis (Cache) ───────────────────────────────────────────
   - type: redis
@@ -100,10 +85,8 @@ services:
     envVars:
       - key: API_BASE_URL
         value: https://money-manager-backend.onrender.com/api
-        sync: false
 
 # ── Database ──────────────────────────────────────────────────
 databases:
   - name: money-manager-db
     plan: free
-
