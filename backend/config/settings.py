@@ -298,6 +298,10 @@ SESSION_COOKIE_SECURE = config(
 CSRF_COOKIE_SECURE = config(
     'CSRF_COOKIE_SECURE', default=False, cast=bool
 )
+
+# Allow cross-domain cookies
+SESSION_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'None'
 SECURE_HSTS_SECONDS = config(
     'SECURE_HSTS_SECONDS', default=0, cast=int
 )

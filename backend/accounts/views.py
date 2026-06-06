@@ -68,7 +68,7 @@ def _set_auth_cookies(response, access_token, refresh_token):
         max_age=60 * 60 * 24,  # 1 day
         httponly=settings.HTTPONLY_COOKIES_ENABLED,
         secure=settings.SECURE_COOKIE_ENABLED,
-        samesite='Strict' if settings.SECURE_COOKIE_ENABLED else 'Lax',
+        samesite='None' if settings.SECURE_COOKIE_ENABLED else 'Lax',
         path='/',
     )
 
@@ -79,7 +79,7 @@ def _set_auth_cookies(response, access_token, refresh_token):
         max_age=60 * 60 * 24 * 7,  # 7 days
         httponly=settings.HTTPONLY_COOKIES_ENABLED,
         secure=settings.SECURE_COOKIE_ENABLED,
-        samesite='Strict' if settings.SECURE_COOKIE_ENABLED else 'Lax',
+        samesite='None' if settings.SECURE_COOKIE_ENABLED else 'Lax',
         path='/',
     )
 
@@ -202,7 +202,7 @@ class CustomTokenRefreshView(TokenRefreshView):
                     httponly=settings.HTTPONLY_COOKIES_ENABLED,
                     secure=settings.SECURE_COOKIE_ENABLED,
                     samesite=(
-                        'Strict'
+                        'None'
                         if settings.SECURE_COOKIE_ENABLED
                         else 'Lax'
                     ),
