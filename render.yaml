@@ -86,7 +86,7 @@ services:
     branch: main
     rootDir: frontend
     buildCommand: echo "No build needed — static HTML/CSS/JS"
-    publishDir: frontend
+    publishDir: .
     routes:
       - type: rewrite
         source: /*

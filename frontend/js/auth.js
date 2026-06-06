@@ -8,7 +8,7 @@
 
 // Use relative URL to go through nginx proxy
 // This ensures same-origin requests and proper cookie handling
-const API_BASE = '/api';
+const API_BASE = 'https://money-manager-backend.onrender.com/api';
 
 // Apply saved theme
 const saved = localStorage.getItem('mm-theme') || 'dark';
