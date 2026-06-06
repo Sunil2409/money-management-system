@@ -4,7 +4,7 @@ A modern, full-stack money management application with **secure JWT authenticati
 
 Built with **Django REST Framework** (backend), **httpOnly Cookie-based JWT**, and **Vanilla JavaScript** (frontend).
 
-**🌐 [Live Demo](https://money-manager.onrender.com)** | **📚 [API Documentation (Swagger)](https://money-manager.onrender.com/api/docs/)**
+**🌐 [Live Demo (Frontend)](https://money-manager-frontend.render.com)** | **📚 [API Documentation (Swagger)](https://money-manager-backend.render.com/api/docs/)**
 
 ---
 
@@ -373,4 +373,3 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
   <br/>
   Built with ❤️ by Sunil Kumar E
 </p>
-

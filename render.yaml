@@ -62,7 +62,12 @@ services:
       # ── CORS ─────────────────────────────────────────────────
       # Auto-resolves to the frontend static site URL
       - key: CORS_ALLOWED_ORIGINS
-        value: https://mm-sunil2409-frontend.onrender.com
+        value: https://mm-sunil2409-frontend.onrender.com,https://mm-sunil2409-backend.onrender.com
+
+      # ── API Documentation ────────────────────────────────────
+      # Public URL for Swagger UI to find the schema
+      - key: API_PUBLIC_URL
+        value: https://mm-sunil2409-backend.onrender.com
 
   # ── Redis (Cache) ───────────────────────────────────────────
   - type: redis

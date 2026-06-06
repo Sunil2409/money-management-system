@@ -140,7 +140,7 @@ document.getElementById('registerFormEl').addEventListener('submit', async (e) =
 
     // Success! Tokens are now in httpOnly cookies
     // Redirect to app
-    window.location.href = 'index.html';
+    window.location.href = '/';
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {

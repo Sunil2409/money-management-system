@@ -216,6 +216,10 @@ SPECTACULAR_SETTINGS = {
         'with user authentication.'
     ),
     'VERSION': '1.0.0',
+    # Add the public URL for the API server for Swagger UI to work in production
+    'SERVERS': [
+        {'url': config('API_PUBLIC_URL', default='http://localhost:8000'), 'description': 'API Server'},
+    ],
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
     'SERVE_AUTHENTICATION': None,  # Swagger UI test endpoints
     'SCHEMA_PATH_PREFIX': r'/api',
@@ -300,9 +304,11 @@ CSRF_COOKIE_SECURE = config(
     'CSRF_COOKIE_SECURE', default=False, cast=bool
 )
 
-# Allow cross-domain cookies
-SESSION_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SAMESITE = 'None'
+# Allow cross-domain cookies when in a secure context (production),
+# otherwise use 'Lax' for local development.
+SAMESITE_SETTING = 'None' if SECURE_COOKIE_ENABLED else 'Lax'
+SESSION_COOKIE_SAMESITE = SAMESITE_SETTING
+CSRF_COOKIE_SAMESITE = SAMESITE_SETTING
 SECURE_HSTS_SECONDS = config(
     'SECURE_HSTS_SECONDS', default=0, cast=int
 )

@@ -77,10 +77,14 @@ CSRF_COOKIE_SECURE=True
 
 # Hosts & CORS
 ALLOWED_HOSTS=money-manager-backend.render.com,yourdomain.com
-CORS_ALLOWED_ORIGINS=https://money-manager-frontend.render.com,https://yourdomain.com
+# Add the backend's own URL to CORS for Swagger UI, plus the frontend URL
+CORS_ALLOWED_ORIGINS=https://money-manager-frontend.render.com,https://money-manager-backend.render.com,https://yourdomain.com
 
 # Redis (set after Redis creation)
 REDIS_URL=redis://...  # Set after Redis creation
+
+# API Documentation
+API_PUBLIC_URL=https://money-manager-backend.render.com
 
 # Other
 DJANGO_ALLOWED_HOSTS=money-manager-backend.render.com
@@ -175,37 +179,20 @@ However, **simpler approach**: Serve frontend as Static Site and backend as Web 
 
 ---
 
-## Part 4: Update Frontend API URL
+## Part 4: Verify Frontend API URL
 
-The frontend currently points to `http://localhost`. Update it to use Render backend URL:
+The frontend service on Render is configured with a **proxy rewrite rule**. This means any request from the frontend to `/api/...` is automatically forwarded to the backend service.
 
-### Update `frontend/js/app.js`
+This is a best practice that avoids hardcoding production URLs in your frontend code.
 
-```javascript
-// Change from:
-const API_BASE = '/api';
-
-// To:
-const API_BASE = 'https://money-manager-backend.render.com/api';
-```
-
-### Update `frontend/js/auth.js`
+Verify that your frontend JavaScript files (`frontend/js/app.js` and `frontend/js/auth.js`) use a relative path for the API base URL:
 
 ```javascript
-// Change from:
+// This is the correct configuration
 const API_BASE = '/api';
-
-// To:
-const API_BASE = 'https://money-manager-backend.render.com/api';
 ```
 
-### Push changes to GitHub:
-
-```bash
-git add frontend/js/app.js frontend/js/auth.js
-git commit -m "Update API endpoint for Render production"
-git push origin main
-```
+No changes are needed in the JavaScript files if they already use this relative path.
 
 ---
 
