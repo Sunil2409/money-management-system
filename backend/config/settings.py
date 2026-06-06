@@ -92,13 +92,21 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Automatically uses PostgreSQL when DB_ENGINE env var is set
-# (Docker/production), falls back to SQLite for local development.
-# falls back to SQLite for local development.
+# Priority: 1) DATABASE_URL (Render/Heroku-style)  2) Individual DB_* vars  3) SQLite
+import dj_database_url  # noqa: E402
 
 DB_ENGINE = config('DB_ENGINE', default='django.db.backends.sqlite3')
 
-if DB_ENGINE == 'django.db.backends.postgresql':
+if config('DATABASE_URL', default=''):
+    # Render / Heroku / Docker Compose — single connection string
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=config('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+elif DB_ENGINE == 'django.db.backends.postgresql':
     DATABASES = {
         'default': {
             'ENGINE': DB_ENGINE,

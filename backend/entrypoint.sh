@@ -1,25 +1,27 @@
 #!/bin/bash
 set -e
 
-DB_HOST="${DB_HOST:-db}"
-DB_PORT="${DB_PORT:-5432}"
+# ── Wait for database to be ready ────────────────────────────────
+# Works with both DATABASE_URL (Render/Heroku) and individual DB_* vars (Docker Compose)
 MAX_ATTEMPTS=30
 ATTEMPT=0
 
-echo "⏳ Waiting for PostgreSQL to be ready at $DB_HOST:$DB_PORT..."
+echo "⏳ Waiting for database to be ready..."
+
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if (echo >/dev/tcp/$DB_HOST/$DB_PORT) 2>/dev/null; then
-        echo "✅ PostgreSQL is ready"
+    # Try Django's connection check — handles any database backend
+    if python manage.py check --database default 2>/dev/null; then
+        echo "✅ Database is ready"
         break
     fi
-    
+
     ATTEMPT=$((ATTEMPT + 1))
-    echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS - PostgreSQL not ready, retrying in 2s..."
+    echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS — database not ready, retrying in 2s..."
     sleep 2
 done
 
 if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "❌ Failed to connect to PostgreSQL after $MAX_ATTEMPTS attempts"
+    echo "❌ Failed to connect to database after $MAX_ATTEMPTS attempts"
     exit 1
 fi
 
