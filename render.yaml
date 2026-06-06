@@ -85,13 +85,14 @@ services:
     plan: free
     ipAllowList: []
 
-# ── Frontend: Static Site ──────────────────────────────────────
-staticSites:
-  - name: money-manager-frontend
+  # ── Frontend: Static Site ──────────────────────────────────────
+  - type: web
+    name: money-manager-frontend
+    env: static
     branch: main
     rootDir: frontend
     buildCommand: echo "No build needed — static HTML/CSS/JS"
-    publishDir: .
+    staticPublishPath: .
     routes:
       - type: rewrite
         source: /*
