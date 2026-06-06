@@ -25,3 +25,6 @@ media/
 .env
 .env.local
 *.env
+
+# ── Miscellaneous ─────────────────────────────────
+codeLearning.md
