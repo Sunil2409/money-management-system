@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os  # noqa: E402
 from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv
@@ -21,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# ── Environment Configuration ─────────────────────────────────────
+# ── Environment Configuration ─────────────────────────────────
 # Load settings from environment variables, with sensible
 # defaults for development
 SECRET_KEY = config(
@@ -93,10 +94,14 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-# Priority: 1) DATABASE_URL (Render/Heroku-style)  2) Individual DB_* vars  3) SQLite
+# Priority: 1) DATABASE_URL (Render/Heroku-style)
+#           2) Individual DB_* vars  3) SQLite
 import dj_database_url  # noqa: E402
 
-DB_ENGINE = config('DB_ENGINE', default='django.db.backends.sqlite3')
+DB_ENGINE = config(
+    'DB_ENGINE',
+    default='django.db.backends.sqlite3'
+)
 
 if config('DATABASE_URL', default=''):
     # Render / Heroku / Docker Compose — single connection string
@@ -115,7 +120,9 @@ elif DB_ENGINE == 'django.db.backends.postgresql':
             'USER': config('DB_USER', default='mm_user'),
             'HOST': config('DB_HOST', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
-            'PASSWORD': config('DB_PASSWORD', default='mm_password'),
+            'PASSWORD': config(
+                'DB_PASSWORD', default='mm_password'
+            ),
         }
     }
 else:
@@ -177,7 +184,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
-# ── Django REST Framework ─────────────────────────────────────────
+# ── Django REST Framework ─────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'config.authentication.CookieJWTAuthentication',
@@ -204,10 +211,12 @@ REST_FRAMEWORK = {
         'user': '60/minute',  # Authenticated users
         'login': '5/minute',  # Brute-force protection
     },
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_SCHEMA_CLASS': (
+        'drf_spectacular.openapi.AutoSchema'
+    ),
 }
 
-# ── drf-spectacular Configuration ──────────────────────────────────────
+# ── drf-spectacular Configuration ─────────────────────────────
 # Generates OpenAPI 3.0 schema and Swagger/Redoc documentation
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Money Manager API',
@@ -216,16 +225,27 @@ SPECTACULAR_SETTINGS = {
         'with user authentication.'
     ),
     'VERSION': '1.0.0',
-    # Add the public URL for the API server for Swagger UI to work in production
+    # Public URL for the API server (Swagger UI)
     'SERVERS': [
-        {'url': config('API_PUBLIC_URL', default='http://localhost:8000'), 'description': 'API Server'},
+        {
+            'url': config(
+                'API_PUBLIC_URL',
+                default='http://localhost:8000'
+            ),
+            'description': 'API Server',
+        },
     ],
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
-    'SERVE_AUTHENTICATION': None,  # Swagger UI test endpoints
+    'SERVE_PERMISSIONS': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    'SERVE_AUTHENTICATION': None,
     'SCHEMA_PATH_PREFIX': r'/api',
     'CONTACT': {
         'name': 'Money Manager',
-        'url': 'https://github.com/yourusername/money-manager',
+        'url': (
+            'https://github.com/'
+            'yourusername/money-manager'
+        ),
     },
     'LICENSE': {
         'name': 'MIT',
@@ -233,14 +253,14 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# ── JWT Settings ──────────────────────────────────────────────────
+# ── JWT Settings ──────────────────────────────────────────────
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# ── CORS Settings ─────────────────────────────────────────────────
+# ── CORS Settings ─────────────────────────────────────────────
 # Default to localhost origins in dev;
 # Use CORS_ALLOWED_ORIGINS env var for production
 CORS_ALLOWED_ORIGINS = config(
@@ -255,32 +275,34 @@ CORS_ALLOW_ALL_ORIGINS = config(
 )
 CORS_ALLOW_CREDENTIALS = True
 
-# ── httpOnly Cookie Settings ──────────────────────────────────────
-# Controls whether JWT tokens are set as Secure & SameSite=Strict
+# ── httpOnly Cookie Settings ──────────────────────────────────
+# Controls whether JWT tokens are set as
+# Secure & SameSite=Strict.
 # Set to True in production (requires HTTPS)
 # Set to False for local development (HTTP)
 SECURE_COOKIE_ENABLED = config(
     'SECURE_COOKIE_ENABLED', default=False, cast=bool
 )
 
-# Controls whether JWT tokens are set as httpOnly (browser-only, not accessible to JavaScript)
-# Set to True in production for security (prevents XSS attacks)
-# Set to False for development/debugging (allows JavaScript to see tokens)
-# Note: Some Electron/embedded browser environments may require httpOnly=False
+# Controls whether JWT tokens are set as httpOnly
+# (browser-only, not accessible to JavaScript).
+# True in production for security (prevents XSS).
+# False for development/debugging.
+# Note: Some Electron/embedded browsers may need False.
 HTTPONLY_COOKIES_ENABLED = config(
-    'HTTPONLY_COOKIES_ENABLED', 
-    default=not DEBUG,  # True in production (DEBUG=False), False in development
+    'HTTPONLY_COOKIES_ENABLED',
+    default=not DEBUG,
     cast=bool
 )
 
-# ── Production Security Settings ─────────────────────────────────────
-# These settings are optional but highly recommended for production.
-# Enable by setting in .env or uncommenting below for production.
+# ── Production Security Settings ─────────────────────────────
+# These settings are optional but recommended for production.
+# Enable by setting in .env or uncommenting below.
 #
-# SECURE_SSL_REDIRECT: Redirect all HTTP to HTTPS (requires SSL certificate)
+# SECURE_SSL_REDIRECT: Redirect all HTTP to HTTPS
 # SESSION_COOKIE_SECURE: Only send session cookies over HTTPS
 # CSRF_COOKIE_SECURE: Only send CSRF cookies over HTTPS
-# SECURE_HSTS_SECONDS: HTTP Strict Transport Security (forces HTTPS for 1 year)
+# SECURE_HSTS_SECONDS: HTTP Strict Transport Security
 # SECURE_HSTS_INCLUDE_SUBDOMAINS: Include subdomains in HSTS
 #
 # For production, add to .env:
@@ -291,8 +313,10 @@ HTTPONLY_COOKIES_ENABLED = config(
 #   SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 #   SECURE_COOKIE_ENABLED=True
 
-# Allow Django to recognize HTTPS from Render's load balancer
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Allow Django to recognize HTTPS from load balancer
+SECURE_PROXY_SSL_HEADER = (
+    'HTTP_X_FORWARDED_PROTO', 'https'
+)
 
 SECURE_SSL_REDIRECT = config(
     'SECURE_SSL_REDIRECT', default=False, cast=bool
@@ -304,8 +328,8 @@ CSRF_COOKIE_SECURE = config(
     'CSRF_COOKIE_SECURE', default=False, cast=bool
 )
 
-# Allow cross-domain cookies when in a secure context (production),
-# otherwise use 'Lax' for local development.
+# Allow cross-domain cookies when in a secure context
+# (production), otherwise use 'Lax' for local dev.
 SAMESITE_SETTING = 'None' if SECURE_COOKIE_ENABLED else 'Lax'
 SESSION_COOKIE_SAMESITE = SAMESITE_SETTING
 CSRF_COOKIE_SAMESITE = SAMESITE_SETTING
@@ -316,7 +340,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
     'SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool
 )
 
-# ── Redis Cache ───────────────────────────────────────────────────
+# ── Redis Cache ───────────────────────────────────────────────
 # Uses Redis when REDIS_URL is set (Docker/production),
 # falls back to in-memory cache for local development.
 REDIS_URL = config('REDIS_URL', default='')
@@ -327,7 +351,9 @@ if REDIS_URL:
             'BACKEND': 'django_redis.cache.RedisCache',
             'LOCATION': REDIS_URL,
             'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CLIENT_CLASS': (
+                    'django_redis.client.DefaultClient'
+                ),
             },
             'TIMEOUT': 300,
         }
@@ -335,38 +361,54 @@ if REDIS_URL:
 else:
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'BACKEND': (
+                'django.core.cache.backends'
+                '.locmem.LocMemCache'
+            ),
         }
     }
 
-# ── Logging ───────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────
 from config.logging_config import LOGGING_CONFIG as LOGGING_DICT  # noqa: E402
 LOGGING_CONFIG = 'logging.config.dictConfig'
 LOGGING = LOGGING_DICT
 
-import os
-
 # Celery Broker & Result Backend
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/1')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+CELERY_BROKER_URL = os.environ.get(
+    'CELERY_BROKER_URL', 'redis://redis:6379/1'
+)
+CELERY_RESULT_BACKEND = os.environ.get(
+    'REDIS_URL', 'redis://redis:6379/0'
+)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-# Garbage collection optimization for Python heap on low-RAM hosts
+# Garbage collection optimization for low-RAM hosts
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
 CELERY_TASK_ACKS_LATE = True
 
-# AWS S3 Settings (Boto3 picks up IAM Instance Profile credentials automatically)
-AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-AWS_DEFAULT_REGION = os.environ.get('AWS_DEFAULT_REGION', 'ap-south-1')
+# AWS S3 Settings
+# Boto3 picks up IAM Instance Profile credentials automatically
+AWS_STORAGE_BUCKET_NAME = os.environ.get(
+    'AWS_STORAGE_BUCKET_NAME'
+)
+AWS_DEFAULT_REGION = os.environ.get(
+    'AWS_DEFAULT_REGION', 'ap-south-1'
+)
 
-# Celery Beat Periodic Schedule: Run on the 1st of every month at 00:00 UTC
-from celery.schedules import crontab
+# Celery Beat Periodic Schedule:
+# Run on the 1st of every month at 00:00 UTC
+from celery.schedules import crontab  # noqa: E402
 CELERY_BEAT_SCHEDULE = {
     'generate-monthly-statements-all-users': {
-        'task': 'transactions.tasks.dispatch_monthly_statements',
-        'schedule': crontab(day_of_month='1', hour='0', minute='0'),
+        'task': (
+            'transactions.tasks'
+            '.dispatch_monthly_statements'
+        ),
+        'schedule': crontab(
+            day_of_month='1', hour='0', minute='0'
+        ),
     },
 }
