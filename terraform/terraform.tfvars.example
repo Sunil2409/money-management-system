@@ -1,0 +1,6 @@
+aws_region        = "ap-south-1"
+environment       = "prod"
+alert_email       = "your-email@example.com"
+db_password       = "ReplaceWithAStrongRandomPassword123!"
+django_secret_key = "django-insecure-replace-with-a-real-generated-secret-key"
+jwt_secret_key    = "jwt-token-secret-replace-with-random-hex-string"

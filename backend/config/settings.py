@@ -343,3 +343,30 @@ else:
 from config.logging_config import LOGGING_CONFIG as LOGGING_DICT  # noqa: E402
 LOGGING_CONFIG = 'logging.config.dictConfig'
 LOGGING = LOGGING_DICT
+
+import os
+
+# Celery Broker & Result Backend
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/1')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Garbage collection optimization for Python heap on low-RAM hosts
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
+CELERY_TASK_ACKS_LATE = True
+
+# AWS S3 Settings (Boto3 picks up IAM Instance Profile credentials automatically)
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+AWS_DEFAULT_REGION = os.environ.get('AWS_DEFAULT_REGION', 'ap-south-1')
+
+# Celery Beat Periodic Schedule: Run on the 1st of every month at 00:00 UTC
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'generate-monthly-statements-all-users': {
+        'task': 'transactions.tasks.dispatch_monthly_statements',
+        'schedule': crontab(day_of_month='1', hour='0', minute='0'),
+    },
+}

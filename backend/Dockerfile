@@ -1,58 +1,49 @@
-# ============================================================
-# Multi-stage Dockerfile for Money Manager Django Backend
-# ============================================================
-# Stage 1: Build dependencies in isolated layer
-# Stage 2: Slim production image with non-root user
-# ============================================================
-
-# ── Stage 1: Builder ────────────────────────────────────────
+# Stage 1: Build virtualenv
 FROM python:3.12-slim AS builder
 
-WORKDIR /build
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Install build dependencies for psycopg2
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Stage 2: Production ────────────────────────────────────
+# Stage 2: Minimal Runtime Image
 FROM python:3.12-slim
 
-# Install runtime dependency for psycopg2
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create non-root user (security best practice)
-RUN addgroup --system appgroup && \
-    adduser --system --ingroup appgroup appuser
-
 WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Copy installed packages from builder
+# Install only runtime shared libraries (libpq for postgres, curl for healthchecks)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root security posture
+RUN useradd -u 1000 -m appuser
+
 COPY --from=builder /install /usr/local
+COPY --chown=appuser:appuser . /app
 
-# Copy application code
-COPY . .
+# Create directories for static files
+RUN mkdir -p /app/staticfiles && chown -R appuser:appuser /app/staticfiles
 
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
-# Create directories for static files and set permissions
-RUN mkdir -p /app/staticfiles && \
-    chown -R appuser:appgroup /app
-
-# Switch to non-root user
 USER appuser
 
 EXPOSE 8000
 
-# Health check — verifies the app is responding
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')" || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--access-logfile", "-"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "2", "--worker-class", "gthread", "--timeout", "120", "--access-logfile", "-"]

@@ -14,18 +14,18 @@ Routes:
 from django.contrib import admin
 from django.urls import path, include
 
-from config.health import health_check
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+from transactions.views import HealthCheckView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("transactions.urls")),
     path("api/auth/", include("accounts.urls")),
-    path("api/health/", health_check, name="health-check"),
+    path("api/health/", HealthCheckView.as_view(), name="health-check"),
     # API Documentation (drf-spectacular)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

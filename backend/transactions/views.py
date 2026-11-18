@@ -14,13 +14,18 @@ Performance:
 import logging
 from decimal import Decimal
 
+import boto3
+from botocore.exceptions import ClientError
+from django.conf import settings
 from django.core.cache import cache
+from django.db import connection
 from django.db.models import Sum, Count
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Transaction
 from .serializers import TransactionSerializer
@@ -29,6 +34,41 @@ logger = logging.getLogger(__name__)
 
 # Cache TTL for summary endpoint (5 minutes)
 SUMMARY_CACHE_TTL = 300
+
+
+class StatementDownloadView(APIView):
+    """Generates a temporary (15-min) presigned S3 download URL for a monthly PDF statement."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, year: int, month: int):
+        s3_key = f"statements/user_{request.user.id}/{year}_{int(month):02d}_statement.pdf"
+        s3_client = boto3.client('s3', region_name=settings.AWS_DEFAULT_REGION)
+
+        try:
+            # Verify the object exists before signing the download URL
+            s3_client.head_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=s3_key)
+
+            # Generate pre-signed URL (expires in 900 seconds / 15 minutes)
+            presigned_url = s3_client.generate_presigned_url(
+                ClientMethod='get_object',
+                Params={
+                    'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                    'Key': s3_key,
+                    'ResponseContentDisposition': f'attachment; filename="statement_{year}_{month:02d}.pdf"'
+                },
+                ExpiresIn=900
+            )
+            return Response({'download_url': presigned_url, 'expires_in_seconds': 900})
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                return Response(
+                    {'error': 'Statement for the requested month has not been generated yet.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            return Response(
+                {'error': 'Could not fetch statement. Try again later.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -162,3 +202,33 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         cache.set(cache_key, result, timeout=SUMMARY_CACHE_TTL)
         return Response(result)
+
+
+class HealthCheckView(APIView):
+    """Deep readiness probe verifying database connectivity and Redis cache response."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        health_status = {"database": "healthy", "redis": "healthy"}
+
+        # Test PostgreSQL connection
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+        except Exception as e:
+            health_status["database"] = f"unhealthy: {str(e)}"
+
+        # Test Redis ping
+        try:
+            cache.set("health_check_ping", "pong", timeout=5)
+            if cache.get("health_check_ping") != "pong":
+                raise ValueError("Cache readback failed")
+        except Exception as e:
+            health_status["redis"] = f"unhealthy: {str(e)}"
+
+        is_healthy = all(v == "healthy" for v in health_status.values())
+        return Response(
+            health_status,
+            status=status.HTTP_200_OK if is_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
+        )
