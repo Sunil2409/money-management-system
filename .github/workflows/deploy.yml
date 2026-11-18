@@ -83,6 +83,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings
           SECRET_KEY: ci-test-secret-key-not-for-production
           DEBUG: "True"
+          HTTPONLY_COOKIES_ENABLED: "True"
           DB_ENGINE: django.db.backends.postgresql
           DB_NAME: test_money_manager
           DB_USER: test_user
@@ -101,6 +102,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings
           SECRET_KEY: ci-test-secret-key-not-for-production
           DEBUG: "True"
+          HTTPONLY_COOKIES_ENABLED: "True"
           DB_ENGINE: django.db.backends.postgresql
           DB_NAME: test_money_manager
           DB_USER: test_user
