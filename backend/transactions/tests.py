@@ -12,6 +12,8 @@ Tests covering:
 import pytest
 from decimal import Decimal
 from datetime import date
+from unittest.mock import patch, MagicMock
+from botocore.exceptions import ClientError
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -368,3 +370,120 @@ class TestTransactionSummary:
         assert 'food' in breakdown
         assert 'transport' in breakdown
         assert 'salary' not in breakdown  # credited, not spent
+
+
+@pytest.mark.django_db
+class TestHealthCheck:
+    """Tests for health check endpoint."""
+
+    def setup_method(self):
+        """Setup test client."""
+        self.client = APIClient()
+
+    def test_health_check_returns_200(self):
+        """Test health check returns 200."""
+        response = self.client.get('/api/health/')
+        assert response.status_code == (
+            status.HTTP_200_OK
+        )
+        assert 'database' in response.data
+        assert 'redis' in response.data
+
+    def test_health_check_db_healthy(self):
+        """Test health check reports DB status."""
+        response = self.client.get('/api/health/')
+        assert response.data['database'] == 'healthy'
+
+
+@pytest.mark.django_db
+class TestStatementDownload:
+    """Tests for statement download endpoint."""
+
+    def setup_method(self):
+        """Setup test client and user."""
+        self.client = APIClient()
+        User.objects.all().delete()
+        self.user = User.objects.create_user(
+            username='dltest',
+            password='securepass123'
+        )
+        self.client.force_authenticate(
+            user=self.user
+        )
+
+    @patch('transactions.views.boto3')
+    def test_download_success(self, mock_boto3):
+        """Test successful statement download."""
+        mock_s3 = MagicMock()
+        mock_boto3.client.return_value = mock_s3
+        mock_s3.generate_presigned_url.return_value = (
+            'https://s3.example.com/signed'
+        )
+
+        response = self.client.get(
+            '/api/statements/2024/1/download/'
+        )
+
+        assert response.status_code == (
+            status.HTTP_200_OK
+        )
+        assert 'download_url' in response.data
+        assert (
+            response.data['expires_in_seconds'] == 900
+        )
+
+    @patch('transactions.views.boto3')
+    def test_download_not_found(self, mock_boto3):
+        """Test 404 when statement not generated."""
+        mock_s3 = MagicMock()
+        mock_boto3.client.return_value = mock_s3
+        err = {
+            'Error': {
+                'Code': '404',
+                'Message': 'Not Found',
+            }
+        }
+        mock_s3.head_object.side_effect = (
+            ClientError(err, 'HeadObject')
+        )
+
+        response = self.client.get(
+            '/api/statements/2024/1/download/'
+        )
+
+        assert response.status_code == (
+            status.HTTP_404_NOT_FOUND
+        )
+
+    @patch('transactions.views.boto3')
+    def test_download_server_error(self, mock_boto3):
+        """Test 500 on S3 failure."""
+        mock_s3 = MagicMock()
+        mock_boto3.client.return_value = mock_s3
+        err = {
+            'Error': {
+                'Code': '500',
+                'Message': 'Internal Error',
+            }
+        }
+        mock_s3.head_object.side_effect = (
+            ClientError(err, 'HeadObject')
+        )
+
+        response = self.client.get(
+            '/api/statements/2024/1/download/'
+        )
+
+        assert response.status_code == (
+            status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    def test_download_unauthenticated(self):
+        """Test download requires authentication."""
+        client = APIClient()
+        response = client.get(
+            '/api/statements/2024/1/download/'
+        )
+        assert response.status_code == (
+            status.HTTP_401_UNAUTHORIZED
+        )

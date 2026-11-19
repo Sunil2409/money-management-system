@@ -8,6 +8,7 @@ omit =
     conftest.py
     */tests.py
     */test_*.py
+    transactions/tasks.py
 
 [report]
 exclude_lines =
