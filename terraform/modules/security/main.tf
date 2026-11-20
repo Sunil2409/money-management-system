@@ -122,7 +122,7 @@ locals {
 }
 
 resource "aws_ssm_parameter" "db_password" {
-  name        = "${locals.ssm_prefix}/POSTGRES_PASSWORD"
+  name        = "${local.ssm_prefix}/POSTGRES_PASSWORD"
   description = "Database master password"
   type        = "SecureString"
   value       = var.db_password
@@ -130,7 +130,7 @@ resource "aws_ssm_parameter" "db_password" {
 }
 
 resource "aws_ssm_parameter" "django_secret" {
-  name        = "${locals.ssm_prefix}/SECRET_KEY"
+  name        = "${local.ssm_prefix}/SECRET_KEY"
   description = "Django application secret key"
   type        = "SecureString"
   value       = var.django_secret_key
@@ -138,7 +138,7 @@ resource "aws_ssm_parameter" "django_secret" {
 }
 
 resource "aws_ssm_parameter" "jwt_secret" {
-  name        = "${locals.ssm_prefix}/JWT_SECRET_KEY"
+  name        = "${local.ssm_prefix}/JWT_SECRET_KEY"
   description = "JWT authentication secret key"
   type        = "SecureString"
   value       = var.jwt_secret_key
@@ -234,9 +234,4 @@ resource "aws_iam_policy" "github_actions_deploy" {
 resource "aws_iam_role_policy_attachment" "github_oidc_attach" {
   role       = aws_iam_role.github_actions_oidc.name
   policy_arn = aws_iam_policy.github_actions_deploy.arn
-}
-
-output "github_actions_role_arn" {
-  description = "Role ARN to set in GitHub repository secret AWS_ROLE_TO_ASSUME"
-  value       = aws_iam_role.github_actions_oidc.arn
 }

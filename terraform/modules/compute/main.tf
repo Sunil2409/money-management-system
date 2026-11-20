@@ -27,14 +27,15 @@ resource "aws_instance" "app_server" {
     delete_on_termination = true
   }
 
-  user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
+  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     aws_region     = var.aws_region
     s3_bucket_name = var.s3_bucket_name
     environment    = var.environment
   })
 
   tags = {
-    Name = "money-manager-${var.environment}-instance"
+    Name    = "money-manager-${var.environment}-instance"
+    Project = "MoneyManager"
   }
 
   lifecycle {

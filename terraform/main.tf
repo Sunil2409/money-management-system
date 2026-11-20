@@ -52,9 +52,40 @@ module "security" {
   vpc_id               = module.networking.vpc_id
   s3_bucket_arn        = module.storage.bucket_arn
   environment          = var.environment
+  aws_region           = var.aws_region
   db_password          = var.db_password
   django_secret_key    = var.django_secret_key
   jwt_secret_key       = var.jwt_secret_key
+}
+
+resource "aws_ecr_repository" "app" {
+  name                 = "money-manager"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "app" {
+  repository = aws_ecr_repository.app.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 5 images to save storage cost"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 5
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 module "compute" {
