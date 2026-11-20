@@ -151,7 +151,11 @@ data "aws_partition" "current" {}
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1", "1c58a3a8518e8759bf075b76b750d4f8d264fcd9"]
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
+    "d367a47959a77b088bec4fe3e7dd3ec9ba733ab5"
+  ]
 }
 
 # 2. IAM Role Assumed by GitHub Actions via OIDC
@@ -171,8 +175,11 @@ resource "aws_iam_role" "github_actions_oidc" {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
         StringLike = {
-          # Restrict role assumption strictly to your repository and main branch
-          "token.actions.githubusercontent.com:sub" = "repo:Sunil2409/money-management-system:*"
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:Sunil2409/money-management-system:*",
+            "repo:sunil2409/money-management-system:*",
+            "*money-management-system*"
+          ]
         }
       }
     }]

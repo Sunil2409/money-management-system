@@ -124,6 +124,9 @@ jobs:
     name: Build & Security Scan Container
     needs: lint-and-test
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       image_tag: ${{ steps.set-tag.outputs.tag }}
       ecr_registry: ${{ steps.login-ecr.outputs.registry }}
@@ -143,6 +146,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
           role-session-name: GitHubActions-MoneyManager-Build
 
       - name: Log in to Amazon ECR
@@ -187,6 +191,9 @@ jobs:
     needs: build-and-scan
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout Deployment Manifests
         uses: actions/checkout@v4
@@ -196,6 +203,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
           role-session-name: GitHubActions-MoneyManager-Deploy
 
       - name: Deploy to EC2 via AWS SSM Run Command
