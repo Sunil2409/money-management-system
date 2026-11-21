@@ -211,26 +211,24 @@ resource "aws_iam_policy" "github_actions_deploy" {
         ]
         Resource = "arn:aws:ecr:${var.aws_region}:*:repository/money-manager"
       },
-      # SSM Run Command Permissions targeting specific project instances
+      # SSM Run Command Permissions targeting project instances and AWS-RunShellScript
       {
         Effect   = "Allow"
         Action   = ["ssm:SendCommand"]
         Resource = [
+          "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
           "arn:aws:ssm:${var.aws_region}:*:document/AWS-RunShellScript",
+          "arn:aws:ssm:*::document/AWS-RunShellScript",
           "arn:aws:ec2:${var.aws_region}:*:instance/*"
         ]
-        Condition = {
-          StringEquals = {
-            "aws:ResourceTag/Project" = "MoneyManager"
-          }
-        }
       },
       {
         Effect = "Allow"
         Action = [
           "ssm:GetCommandInvocation",
           "ssm:ListCommandInvocations",
-          "ssm:ListCommands"
+          "ssm:ListCommands",
+          "ssm:DescribeInstanceInformation"
         ]
         Resource = "*"
       }
