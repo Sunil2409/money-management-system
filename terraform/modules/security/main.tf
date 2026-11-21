@@ -111,6 +111,11 @@ resource "aws_iam_role_policy_attachment" "ssm_attach" {
   policy_arn = aws_iam_policy.ssm_read.arn
 }
 
+resource "aws_iam_role_policy_attachment" "ecr_read" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
 resource "aws_iam_instance_profile" "profile" {
   name = "money-manager-${var.environment}-instance-profile"
   role = aws_iam_role.ec2_role.name
@@ -210,6 +215,15 @@ resource "aws_iam_policy" "github_actions_deploy" {
           "ecr:BatchGetImage"
         ]
         Resource = "arn:aws:ecr:${var.aws_region}:*:repository/money-manager"
+      },
+      # S3 Deployment Artifacts Upload
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ]
+        Resource = "${var.s3_bucket_arn}/*"
       },
       # SSM Run Command Permissions targeting project instances and AWS-RunShellScript
       {

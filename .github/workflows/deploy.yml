@@ -15,6 +15,7 @@ permissions:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY || 'money-manager' }}
+  S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'money-manager-statements-prod-c22ccadb' }}
   PYTHON_VERSION: '3.12'
 
 jobs:
@@ -206,73 +207,33 @@ jobs:
           audience: sts.amazonaws.com
           role-session-name: GitHubActions-MoneyManager-Deploy
 
+      - name: Package and Upload Deployment Bundle to S3
+        env:
+          S3_BUCKET: ${{ env.S3_BUCKET_NAME }}
+        run: |
+          echo "Packaging deployment manifests, nginx config, frontend, and deploy script..."
+          tar -czf /tmp/deploy.tar.gz docker-compose.prod.yml nginx frontend scripts
+          echo "Uploading deploy package to s3://$S3_BUCKET/deploy/deploy.tar.gz..."
+          aws s3 cp /tmp/deploy.tar.gz "s3://$S3_BUCKET/deploy/deploy.tar.gz" --region "$AWS_REGION"
+          echo "Deployment bundle uploaded successfully."
+
       - name: Deploy to EC2 via AWS SSM Run Command
         env:
           ECR_REGISTRY: ${{ needs.build-and-scan.outputs.ecr_registry }}
           IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
+          S3_BUCKET: ${{ env.S3_BUCKET_NAME }}
         run: |
           echo "Initiating zero-SSH deployment for image tag: $IMAGE_TAG"
 
-          # 1. Update deployment compose file on EC2 via SSM Run Command
-          # Passing command script dynamically with error traps and automated rollback
           COMMAND_ID=$(aws ssm send-command \
             --targets "Key=tag:Project,Values=MoneyManager" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy Money Manager SHA: $IMAGE_TAG" \
             --parameters commands='[
-              "set -euo pipefail",
-              "export HOME=/root",
-              "cd /opt/moneymanager",
-              
-              "echo === 1. Authenticating to ECR ===",
-              "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
-              
-              "echo === 2. Fetching Runtime Secrets from SSM Parameter Store ===",
-              "POSTGRES_PASSWORD=$(aws ssm get-parameter --name /moneymanager/prod/POSTGRES_PASSWORD --with-decryption --query Parameter.Value --output text --region '"$AWS_REGION"')",
-              "SECRET_KEY=$(aws ssm get-parameter --name /moneymanager/prod/SECRET_KEY --with-decryption --query Parameter.Value --output text --region '"$AWS_REGION"')",
-              "JWT_SECRET_KEY=$(aws ssm get-parameter --name /moneymanager/prod/JWT_SECRET_KEY --with-decryption --query Parameter.Value --output text --region '"$AWS_REGION"')",
-              
-              "echo === 3. Writing Runtime Environment File ===",
-              "cat << EOF > .env",
-              "DEBUG=False",
-              "POSTGRES_PASSWORD=$POSTGRES_PASSWORD",
-              "SECRET_KEY=$SECRET_KEY",
-              "JWT_SECRET_KEY=$JWT_SECRET_KEY",
-              "ECR_REGISTRY='"$ECR_REGISTRY"'",
-              "ECR_REPOSITORY='"$ECR_REPOSITORY"'",
-              "IMAGE_TAG='"$IMAGE_TAG"'",
-              "AWS_DEFAULT_REGION='"$AWS_REGION"'",
-              "AWS_STORAGE_BUCKET_NAME=$(cat .app-env | grep AWS_STORAGE_BUCKET_NAME | cut -d= -f2)",
-              "EOF",
-              "chmod 600 .env",
-              
-              "echo === 4. Pulling Scanned Images ===",
-              "docker compose -f docker-compose.prod.yml pull backend celery_worker",
-              
-              "echo === 5. Executing Rolling Recreate ===",
-              "docker compose -f docker-compose.prod.yml up -d --remove-orphans",
-              
-              "echo === 6. Verifying Healthcheck Endpoint ===",
-              "HEALTHY=0",
-              "for i in {1..12}; do",
-              "  HTTP_STATUS=\$(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8000/api/health/ || true)",
-              "  if [ \"\\$HTTP_STATUS\" = \"200\" ]; then",
-              "    echo \"Deployment healthcheck verified: HTTP 200 OK\"",
-              "    HEALTHY=1",
-              "    break",
-              "  fi",
-              "  echo \"Waiting for service readiness (attempt \\$i/12)...\"",
-              "  sleep 5",
-              "done",
-              
-              "if [ \\$HEALTHY -ne 1 ]; then",
-              "  echo \"[FATAL] Readiness check failed. Diagnostic logs:\"",
-              "  docker compose -f docker-compose.prod.yml logs --tail=50 backend",
-              "  exit 1",
-              "fi",
-              
-              "echo === 7. Garbage Collecting Old Images ===",
-              "docker image prune -af --filter \"until=48h\""
+              "aws s3 cp s3://'"$S3_BUCKET"'/deploy/deploy.tar.gz /tmp/deploy.tar.gz --region '"$AWS_REGION"'",
+              "tar -xzf /tmp/deploy.tar.gz -C /opt/moneymanager",
+              "chmod +x /opt/moneymanager/scripts/deploy-ec2.sh",
+              "bash /opt/moneymanager/scripts/deploy-ec2.sh '"$IMAGE_TAG"' '"$ECR_REGISTRY"' '"$AWS_REGION"' '"$S3_BUCKET"' '"$ECR_REPOSITORY"'"
             ]' \
             --query "Command.CommandId" \
             --output text)
