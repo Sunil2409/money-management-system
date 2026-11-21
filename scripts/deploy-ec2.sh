@@ -60,6 +60,9 @@ docker compose -f docker-compose.prod.yml run --rm backend python manage.py coll
 
 echo "=== 8. Executing Rolling Container Recreate ==="
 docker compose -f docker-compose.prod.yml up -d --remove-orphans
+# Restart Nginx so its upstream DNS cache resolves the newly created backend container IP
+docker compose -f docker-compose.prod.yml restart nginx
+sleep 3
 
 echo "=== 9. Verifying Service Health via Nginx Reverse Proxy ==="
 HEALTHY=0
