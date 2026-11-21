@@ -1,11 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-IMAGE_TAG="${1:-latest}"
-ECR_REGISTRY="${2:-}"
-AWS_REGION="${3:-ap-south-1}"
-S3_BUCKET="${4:-money-manager-statements-prod-c22ccadb}"
-ECR_REPOSITORY="${5:-money-manager}"
+IMAGE_TAG="${IMAGE_TAG:-${1:-latest}}"
+AWS_REGION="${AWS_REGION:-${3:-ap-south-1}}"
+S3_BUCKET="${S3_BUCKET:-${4:-money-manager-statements-prod-c22ccadb}}"
+ECR_REPOSITORY="${ECR_REPOSITORY:-${5:-money-manager}}"
+ECR_REGISTRY="${ECR_REGISTRY:-${2:-}}"
+
+# Resolve ECR_REGISTRY dynamically if empty or not a valid ECR domain
+if [ -z "$ECR_REGISTRY" ] || [[ "$ECR_REGISTRY" != *".dkr.ecr."* ]]; then
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+fi
 
 echo "=========================================================="
 echo " Starting Money Manager Production Deployment on EC2"

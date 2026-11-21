@@ -219,11 +219,13 @@ jobs:
 
       - name: Deploy to EC2 via AWS SSM Run Command
         env:
-          ECR_REGISTRY: ${{ needs.build-and-scan.outputs.ecr_registry }}
           IMAGE_TAG: ${{ needs.build-and-scan.outputs.image_tag }}
           S3_BUCKET: ${{ env.S3_BUCKET_NAME }}
         run: |
           echo "Initiating zero-SSH deployment for image tag: $IMAGE_TAG"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          echo "Resolved ECR Registry: $ECR_REGISTRY"
 
           COMMAND_ID=$(aws ssm send-command \
             --targets "Key=tag:Project,Values=MoneyManager" \
@@ -233,7 +235,12 @@ jobs:
               "aws s3 cp s3://'"$S3_BUCKET"'/deploy/deploy.tar.gz /tmp/deploy.tar.gz --region '"$AWS_REGION"'",
               "tar -xzf /tmp/deploy.tar.gz -C /opt/moneymanager",
               "chmod +x /opt/moneymanager/scripts/deploy-ec2.sh",
-              "bash /opt/moneymanager/scripts/deploy-ec2.sh '"$IMAGE_TAG"' '"$ECR_REGISTRY"' '"$AWS_REGION"' '"$S3_BUCKET"' '"$ECR_REPOSITORY"'"
+              "export IMAGE_TAG=\"'"$IMAGE_TAG"'\"",
+              "export ECR_REGISTRY=\"'"$ECR_REGISTRY"'\"",
+              "export AWS_REGION=\"'"$AWS_REGION"'\"",
+              "export S3_BUCKET=\"'"$S3_BUCKET"'\"",
+              "export ECR_REPOSITORY=\"'"$ECR_REPOSITORY"'\"",
+              "bash /opt/moneymanager/scripts/deploy-ec2.sh"
             ]' \
             --query "Command.CommandId" \
             --output text)
